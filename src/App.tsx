@@ -1,12 +1,11 @@
 /**
- * Main Application Component - Trading Platform Core
- * @module App
- * @description Complete trading application with dashboard, charts, watchlist, orders, portfolio, deposits, withdrawals, and real-time market data
- * @version 2.0.0 - Production Ready
+ * Advanced Trading Platform - Complete Application
+ * Features: Real-time stocks, advanced charts, watchlist, portfolio, orders, deposits, withdrawals
+ * UI: Glassmorphism, dark theme, smooth animations, responsive
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { fetchStocks, fetchStockHistory, fetchMarketStatus, executeDeposit, executeWithdrawal, type Stock, type StockHistory, type MarketStatus, type DepositRequest, type WithdrawalRequest, type TransactionResponse, type OrderRequest, type OrderResponse } from './api';
+import { fetchStocks, fetchStockHistory, fetchMarketStatus, executeDeposit, executeWithdrawal, type Stock, type StockHistory, type MarketStatus, type DepositRequest, type WithdrawalRequest, type OrderRequest, type OrderResponse } from './api';
 import { 
   formatCurrency, 
   formatPercentage, 
@@ -15,35 +14,17 @@ import {
   validateUPIId, 
   validateName,
   calculateMarketCountdown,
-  isMarketOpen,
-  getMarketTimeRemaining,
   generateId,
-  debounce,
-  throttle,
   calculatePortfolioValue,
   calculateTotalPL,
   calculateDayPL,
   type MarketTimeInfo,
-  type ValidationResult,
-  type ToastMessage,
   type ToastType,
   type SoundType
 } from './utils';
 
-// Lazy load chart component for performance
-const ChartComponent = lazy(() => import('./components/ChartComponent').catch(() => ({
-  default: () => <div className="chart-placeholder">Chart component loading...</div>
-})));
-
-// ============================================================================
-// PRODUCTION ASSET PATH HELPER
-// ============================================================================
-
-// Helper function to get correct asset paths in production
-const getAssetPath = (path: string): string => {
-  // In production on GitHub Pages, assets are in the root
-  return `/${path}`;
-};
+// Lazy load chart component
+const AdvancedChart = lazy(() => import('./components/AdvancedChart'));
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -118,8 +99,26 @@ interface OrderPanelState {
   estimatedCost: number;
 }
 
-interface Notification extends ToastMessage {
+interface Notification {
   id: string;
+  message: string;
+  type: ToastType;
+  duration?: number;
+}
+
+interface MarketMover {
+  symbol: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  volume: number;
+}
+
+interface NewsItem {
+  id: string;
+  title: string;
+  time: string;
+  impact: 'positive' | 'negative' | 'neutral';
 }
 
 // ============================================================================
@@ -131,34 +130,17 @@ const useSound = () => {
   const [isEnabled, setIsEnabled] = useState(true);
 
   useEffect(() => {
-    // Preload sounds with correct production paths
     const soundFiles: SoundType[] = ['click', 'success', 'error', 'notification', 'order', 'alert'];
     soundFiles.forEach(sound => {
       try {
-        // Use correct path for production
-        const audioPath = `/assets/sounds/${sound}.mp3`;
-        const audio = new Audio(audioPath);
+        const audio = new Audio(`/assets/sounds/${sound}.mp3`);
         audio.preload = 'auto';
-        
-        // Add error handling for missing sounds
-        audio.onerror = () => {
-          console.warn(`Failed to load sound: ${sound}`);
-        };
-        
+        audio.onerror = () => console.warn(`Failed to load sound: ${sound}`);
         soundsRef.current[sound] = audio;
       } catch (error) {
         console.warn(`Error loading sound ${sound}:`, error);
       }
     });
-
-    return () => {
-      Object.values(soundsRef.current).forEach(audio => {
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      });
-    };
   }, []);
 
   const play = useCallback((type: SoundType) => {
@@ -166,9 +148,7 @@ const useSound = () => {
     const sound = soundsRef.current[type];
     if (sound) {
       sound.currentTime = 0;
-      sound.play().catch(err => {
-        console.warn('Sound play failed:', err);
-      });
+      sound.play().catch(err => console.warn('Sound play failed:', err));
     }
   }, [isEnabled]);
 
@@ -180,16 +160,8 @@ const useToast = () => {
 
   const showToast = useCallback((message: string, type: ToastType, duration: number = 4000) => {
     const id = generateId();
-    const toast: Notification = {
-      id,
-      message,
-      type,
-      duration,
-    };
-    setToasts(prev => [...prev, toast]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, duration);
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
     return id;
   }, []);
 
@@ -206,7 +178,6 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((pr
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
       return initialValue;
     }
   });
@@ -217,75 +188,11 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((pr
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(error);
     }
   }, [key, storedValue]);
 
   return [storedValue, setValue];
-};
-
-const useWebSocket = (url: string | null) => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<any>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-
-  useEffect(() => {
-    if (!url) return;
-
-    const connect = () => {
-      try {
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          setIsConnected(true);
-          console.log('WebSocket connected');
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            setLastMessage(data);
-          } catch (error) {
-            console.error('WebSocket message parse error:', error);
-          }
-        };
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-        };
-
-        ws.onclose = () => {
-          setIsConnected(false);
-          console.log('WebSocket disconnected, reconnecting...');
-          reconnectTimeoutRef.current = setTimeout(connect, 5000);
-        };
-      } catch (error) {
-        console.error('WebSocket connection error:', error);
-        reconnectTimeoutRef.current = setTimeout(connect, 5000);
-      }
-    };
-
-    connect();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, [url]);
-
-  const sendMessage = useCallback((data: any) => {
-    if (wsRef.current && isConnected) {
-      wsRef.current.send(JSON.stringify(data));
-    }
-  }, [isConnected]);
-
-  return { isConnected, lastMessage, sendMessage };
 };
 
 // ============================================================================
@@ -293,12 +200,9 @@ const useWebSocket = (url: string | null) => {
 // ============================================================================
 
 const App: React.FC = () => {
-  // ==========================================================================
-  // STATE DECLARATIONS
-  // ==========================================================================
-  
   // Stock Data State
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [filteredStocks, setFilteredStocks] = useState<Stock[]>([]);
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [stockHistory, setStockHistory] = useState<StockHistory | null>(null);
   const [isLoadingStocks, setIsLoadingStocks] = useState(true);
@@ -309,16 +213,17 @@ const App: React.FC = () => {
   const [marketCountdown, setMarketCountdown] = useState<MarketTimeInfo | null>(null);
   
   // Chart Settings
-  const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
-  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '1D'>('1D');
+  const [chartType, setChartType] = useState<'candlestick' | 'line' | 'area'>('candlestick');
+  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '1D' | '1W' | '1M'>('1D');
   
   // Watchlist State
   const [watchlist, setWatchlist] = useLocalStorage<WatchlistItem[]>('watchlist', []);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   
   // Portfolio State
   const [portfolio, setPortfolio] = useLocalStorage<Portfolio>('portfolio', {
-    balance: 100000, // Starting balance ₹1,00,000
+    balance: 100000,
     totalInvested: 0,
     totalCurrentValue: 0,
     totalPL: 0,
@@ -358,161 +263,129 @@ const App: React.FC = () => {
   });
   
   // UI State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'orders'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'orders' | 'watchlist'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  
+  // Market Movers & News
+  const [marketMovers, setMarketMovers] = useState<MarketMover[]>([
+    { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2856.75, changePercent: 2.3, volume: 5234567 },
+    { symbol: 'TCS', name: 'Tata Consultancy', price: 3987.50, changePercent: -0.31, volume: 1234567 },
+    { symbol: 'HDFC', name: 'HDFC Bank', price: 1678.90, changePercent: 0.94, volume: 3456789 },
+    { symbol: 'INFY', name: 'Infosys', price: 1523.45, changePercent: 1.2, volume: 2345678 },
+    { symbol: 'ICICI', name: 'ICICI Bank', price: 1123.80, changePercent: -0.46, volume: 4567890 },
+  ]);
+
+  const [news] = useState<NewsItem[]>([
+    { id: '1', title: 'RBI keeps repo rate unchanged at 6.5%', time: '2 hours ago', impact: 'neutral' },
+    { id: '2', title: 'IT sector shows strong quarterly results', time: '4 hours ago', impact: 'positive' },
+    { id: '3', title: 'Oil prices surge amid supply concerns', time: '6 hours ago', impact: 'negative' },
+    { id: '4', title: 'FIIs invest ₹5000 crores in Indian markets', time: '8 hours ago', impact: 'positive' },
+    { id: '5', title: 'New SEBI regulations for F&O trading', time: '12 hours ago', impact: 'neutral' },
+  ]);
   
   // Custom Hooks
   const { play: playSound } = useSound();
   const { toasts, showToast, removeToast } = useToast();
-  
-  // WebSocket for real-time updates
-  const { lastMessage: wsMessage } = useWebSocket(
-    marketStatus?.isOpen ? 'wss://ws.tradingplatform.com/market-data' : null
-  );
-  
-  // ==========================================================================
-  // COMPUTED VALUES
-  // ==========================================================================
-  
-  const filteredStocks = useMemo(() => {
-    if (!searchQuery) return stocks;
-    const query = searchQuery.toLowerCase();
-    return stocks.filter(
-      stock => stock.symbol.toLowerCase().includes(query) || stock.name.toLowerCase().includes(query)
-    );
-  }, [stocks, searchQuery]);
-  
-  const watchlistStocks = useMemo(() => {
-    const watchlistSymbols = new Set(watchlist.map(item => item.symbol));
-    return stocks.filter(stock => watchlistSymbols.has(stock.symbol));
-  }, [stocks, watchlist]);
-  
-  const filteredWatchlistStocks = useMemo(() => {
-    if (!searchQuery) return watchlistStocks;
-    const query = searchQuery.toLowerCase();
-    return watchlistStocks.filter(
-      stock => stock.symbol.toLowerCase().includes(query) || stock.name.toLowerCase().includes(query)
-    );
-  }, [watchlistStocks, searchQuery]);
-  
-  // ==========================================================================
-  // API CALLS & DATA FETCHING
-  // ==========================================================================
-  
+
+  // Filter stocks based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredStocks(stocks);
+      setShowSearchResults(false);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = stocks.filter(
+        stock => stock.symbol.toLowerCase().includes(query) || stock.name.toLowerCase().includes(query)
+      );
+      setFilteredStocks(filtered);
+      setShowSearchResults(true);
+    }
+  }, [searchQuery, stocks]);
+
+  // Load stocks
   const loadStocks = useCallback(async () => {
     try {
       setIsLoadingStocks(true);
       const data = await fetchStocks();
       setStocks(data);
-      
-      // Set first stock as selected if none selected
+      setFilteredStocks(data);
       if (data.length > 0 && !selectedStock) {
         setSelectedStock(data[0]);
       }
       
-      // Update portfolio with current prices
-      const updatedHoldings = portfolio.holdings.map(holding => {
-        const currentStock = data.find(s => s.symbol === holding.symbol);
-        if (currentStock) {
-          const currentValue = holding.quantity * currentStock.price;
-          const pl = currentValue - holding.investedValue;
-          const plPercentage = (pl / holding.investedValue) * 100;
-          return {
-            ...holding,
-            currentPrice: currentStock.price,
-            currentValue,
-            pl,
-            plPercentage,
-          };
-        }
-        return holding;
-      });
+      // Update market movers with real data
+      const topGainers = [...data].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
+      setMarketMovers(topGainers.map(s => ({
+        symbol: s.symbol,
+        name: s.name,
+        price: s.price,
+        changePercent: s.changePercent,
+        volume: s.volume
+      })));
       
-      const portfolioValue = calculatePortfolioValue(updatedHoldings);
-      const totalPL = calculateTotalPL(updatedHoldings);
-      const dayPL = calculateDayPL(updatedHoldings);
-      
-      setPortfolio(prev => ({
-        ...prev,
-        holdings: updatedHoldings,
-        totalInvested: portfolioValue.invested,
-        totalCurrentValue: portfolioValue.current,
-        totalPL: totalPL,
-        totalPLPercentage: portfolioValue.invested > 0 ? (totalPL / portfolioValue.invested) * 100 : 0,
-        dayPL: dayPL,
-      }));
     } catch (error) {
-      console.error('Failed to load stocks:', error);
       showToast('Failed to load stock data', 'error');
     } finally {
       setIsLoadingStocks(false);
     }
-  }, [selectedStock, portfolio.holdings, setPortfolio, showToast]);
-  
+  }, [selectedStock, showToast]);
+
+  // Load stock history
   const loadStockHistory = useCallback(async (symbol: string) => {
     if (!symbol) return;
     try {
       setIsLoadingChart(true);
-      const history = await fetchStockHistory(symbol, timeframe);
+      const history = await fetchStockHistory(symbol, timeframe as any);
       setStockHistory(history);
     } catch (error) {
-      console.error('Failed to load stock history:', error);
       showToast('Failed to load chart data', 'error');
     } finally {
       setIsLoadingChart(false);
     }
   }, [timeframe, showToast]);
-  
+
+  // Load market status
   const loadMarketStatusData = useCallback(async () => {
     try {
       const status = await fetchMarketStatus();
       setMarketStatus(status);
-      
       const countdown = calculateMarketCountdown();
       setMarketCountdown(countdown);
     } catch (error) {
-      console.error('Failed to load market status:', error);
+      console.error(error);
     }
   }, []);
-  
-  // ==========================================================================
-  // WATCHLIST MANAGEMENT
-  // ==========================================================================
-  
+
+  // Add to watchlist
   const addToWatchlist = useCallback((stock: Stock) => {
     if (watchlist.length >= 50) {
       showToast('Watchlist limit reached (50 items)', 'error');
       return;
     }
-    
     if (watchlist.some(item => item.symbol === stock.symbol)) {
-      showToast(`${stock.symbol} is already in watchlist`, 'info');
+      showToast(`${stock.symbol} already in watchlist`, 'info');
       return;
     }
-    
-    const newItem: WatchlistItem = {
-      id: generateId(),
-      symbol: stock.symbol,
-      name: stock.name,
-      addedAt: Date.now(),
-    };
-    
-    setWatchlist(prev => [...prev, newItem]);
+    setWatchlist(prev => [...prev, { 
+      id: generateId(), 
+      symbol: stock.symbol, 
+      name: stock.name, 
+      addedAt: Date.now() 
+    }]);
     playSound('click');
     showToast(`Added ${stock.symbol} to watchlist`, 'success');
   }, [watchlist, setWatchlist, playSound, showToast]);
-  
+
+  // Remove from watchlist
   const removeFromWatchlist = useCallback((symbol: string) => {
     setWatchlist(prev => prev.filter(item => item.symbol !== symbol));
     playSound('click');
     showToast(`Removed ${symbol} from watchlist`, 'info');
   }, [setWatchlist, playSound, showToast]);
-  
-  // ==========================================================================
-  // ORDER MANAGEMENT
-  // ==========================================================================
-  
+
+  // Place order
   const placeOrder = useCallback(async () => {
     const quantityNum = parseInt(orderPanel.quantity);
     const priceNum = parseFloat(orderPanel.price);
@@ -524,11 +397,6 @@ const App: React.FC = () => {
     
     if (isNaN(quantityNum) || quantityNum <= 0) {
       showToast('Please enter a valid quantity', 'error');
-      return;
-    }
-    
-    if (orderPanel.orderType === 'LIMIT' && (isNaN(priceNum) || priceNum <= 0)) {
-      showToast('Please enter a valid price', 'error');
       return;
     }
     
@@ -546,81 +414,67 @@ const App: React.FC = () => {
       return;
     }
     
-    const orderRequest: OrderRequest = {
-      symbol: orderPanel.symbol,
-      type: orderPanel.type,
-      orderType: orderPanel.orderType,
-      quantity: quantityNum,
-      price: finalPrice,
-    };
+    if (orderPanel.type === 'SELL') {
+      const holding = portfolio.holdings.find(h => h.symbol === orderPanel.symbol);
+      if (!holding || holding.quantity < quantityNum) {
+        showToast('Insufficient shares to sell', 'error');
+        return;
+      }
+    }
     
     try {
       playSound('click');
       
-      // Simulate API call
-      const response: OrderResponse = {
+      const newOrder: Order = {
         id: generateId(),
-        ...orderRequest,
+        symbol: orderPanel.symbol,
+        type: orderPanel.type,
+        orderType: orderPanel.orderType,
+        quantity: quantityNum,
+        price: finalPrice,
         total: totalCost,
         status: 'EXECUTED',
         timestamp: Date.now(),
       };
       
       if (orderPanel.type === 'BUY') {
-        // Update portfolio balance and holdings
         const existingHolding = portfolio.holdings.find(h => h.symbol === orderPanel.symbol);
-        
         let updatedHoldings;
+        
         if (existingHolding) {
           const newQuantity = existingHolding.quantity + quantityNum;
           const newInvestedValue = existingHolding.investedValue + totalCost;
-          const avgPrice = newInvestedValue / newQuantity;
-          
           updatedHoldings = portfolio.holdings.map(h =>
             h.symbol === orderPanel.symbol
-              ? {
-                  ...h,
-                  quantity: newQuantity,
-                  buyPrice: avgPrice,
-                  investedValue: newInvestedValue,
-                }
+              ? { ...h, quantity: newQuantity, investedValue: newInvestedValue, buyPrice: newInvestedValue / newQuantity }
               : h
           );
         } else {
-          updatedHoldings = [
-            ...portfolio.holdings,
-            {
-              symbol: orderPanel.symbol,
-              name: selectedStockData.name,
-              quantity: quantityNum,
-              buyPrice: finalPrice,
-              currentPrice: finalPrice,
-              investedValue: totalCost,
-              currentValue: totalCost,
-              pl: 0,
-              plPercentage: 0,
-            },
-          ];
+          updatedHoldings = [...portfolio.holdings, {
+            symbol: orderPanel.symbol,
+            name: selectedStockData.name,
+            quantity: quantityNum,
+            buyPrice: finalPrice,
+            currentPrice: finalPrice,
+            investedValue: totalCost,
+            currentValue: totalCost,
+            pl: 0,
+            plPercentage: 0,
+          }];
         }
         
         setPortfolio(prev => ({
           ...prev,
           balance: prev.balance - totalCost,
           holdings: updatedHoldings,
-          orders: [response, ...prev.orders],
+          orders: [newOrder, ...prev.orders],
         }));
         
         playSound('success');
-        showToast(`Buy order placed for ${quantityNum} shares of ${orderPanel.symbol}`, 'success');
+        showToast(`✅ Buy order placed for ${quantityNum} shares of ${orderPanel.symbol}`, 'success');
       } else {
-        // SELL order
         const holding = portfolio.holdings.find(h => h.symbol === orderPanel.symbol);
-        if (!holding || holding.quantity < quantityNum) {
-          showToast('Insufficient shares to sell', 'error');
-          return;
-        }
-        
-        const remainingQuantity = holding.quantity - quantityNum;
+        const remainingQuantity = holding!.quantity - quantityNum;
         const soldValue = totalCost;
         
         let updatedHoldings;
@@ -629,11 +483,7 @@ const App: React.FC = () => {
         } else {
           updatedHoldings = portfolio.holdings.map(h =>
             h.symbol === orderPanel.symbol
-              ? {
-                  ...h,
-                  quantity: remainingQuantity,
-                  investedValue: h.investedValue * (remainingQuantity / h.quantity),
-                }
+              ? { ...h, quantity: remainingQuantity, investedValue: h.investedValue * (remainingQuantity / h.quantity) }
               : h
           );
         }
@@ -642,31 +492,21 @@ const App: React.FC = () => {
           ...prev,
           balance: prev.balance + soldValue,
           holdings: updatedHoldings,
-          orders: [response, ...prev.orders],
+          orders: [newOrder, ...prev.orders],
         }));
         
         playSound('success');
-        showToast(`Sell order placed for ${quantityNum} shares of ${orderPanel.symbol}`, 'success');
+        showToast(`✅ Sell order placed for ${quantityNum} shares of ${orderPanel.symbol}`, 'success');
       }
       
-      // Reset order panel
-      setOrderPanel(prev => ({
-        ...prev,
-        quantity: '',
-        price: '',
-        estimatedCost: 0,
-      }));
+      setOrderPanel(prev => ({ ...prev, quantity: '', price: '', estimatedCost: 0 }));
     } catch (error) {
-      console.error('Order placement failed:', error);
       playSound('error');
       showToast('Failed to place order', 'error');
     }
   }, [orderPanel, stocks, portfolio, setPortfolio, playSound, showToast]);
-  
-  // ==========================================================================
-  // DEPOSIT MANAGEMENT
-  // ==========================================================================
-  
+
+  // Handle deposit
   const handleDeposit = useCallback(async () => {
     const amountNum = parseFloat(depositModal.amount);
     const validation = validateDepositAmount(amountNum);
@@ -676,46 +516,34 @@ const App: React.FC = () => {
       return;
     }
     
-    setDepositModal(prev => ({ ...prev, status: 'processing', errorMessage: null }));
+    setDepositModal(prev => ({ ...prev, status: 'processing' }));
     
     try {
-      const request: DepositRequest = { amount: amountNum };
-      const response = await executeDeposit(request);
-      
+      const response = await executeDeposit({ amount: amountNum });
       if (response.success) {
         setDepositModal(prev => ({
           ...prev,
           status: 'success',
           transactionId: response.transactionId || null,
-          qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(`upi://pay?pa=merchant@trading&pn=TradingPlatform&am=${amountNum}&cu=INR`),
+          qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + 
+            encodeURIComponent(`upi://pay?pa=merchant@trading&pn=TradingPlatform&am=${amountNum}&cu=INR`),
         }));
-        
-        setPortfolio(prev => ({
-          ...prev,
-          balance: prev.balance + amountNum,
-        }));
-        
+        setPortfolio(prev => ({ ...prev, balance: prev.balance + amountNum }));
         playSound('success');
-        showToast(`Successfully deposited ₹${formatCurrency(amountNum)}`, 'success');
-      } else {
-        throw new Error(response.message || 'Deposit failed');
+        showToast(`💰 Successfully deposited ₹${formatCurrency(amountNum)}`, 'success');
+        
+        setTimeout(() => {
+          setDepositModal(prev => ({ ...prev, isOpen: false, status: 'idle', amount: '' }));
+        }, 3000);
       }
     } catch (error) {
-      console.error('Deposit failed:', error);
-      setDepositModal(prev => ({
-        ...prev,
-        status: 'error',
-        errorMessage: error instanceof Error ? error.message : 'Deposit processing failed',
-      }));
+      setDepositModal(prev => ({ ...prev, status: 'error', errorMessage: 'Deposit failed' }));
       playSound('error');
       showToast('Deposit failed. Please try again.', 'error');
     }
   }, [depositModal.amount, setPortfolio, playSound, showToast]);
-  
-  // ==========================================================================
-  // WITHDRAWAL MANAGEMENT
-  // ==========================================================================
-  
+
+  // Handle withdrawal
   const handleWithdrawal = useCallback(async () => {
     const amountNum = parseFloat(withdrawModal.amount);
     const amountValidation = validateWithdrawalAmount(amountNum, portfolio.balance);
@@ -737,137 +565,99 @@ const App: React.FC = () => {
       return;
     }
     
-    setWithdrawModal(prev => ({ ...prev, status: 'processing', responseMessage: null }));
+    setWithdrawModal(prev => ({ ...prev, status: 'processing' }));
     
     try {
-      const request: WithdrawalRequest = {
-        upiId: withdrawModal.upiId,
-        name: withdrawModal.name,
-        amount: amountNum,
-      };
-      
-      const response = await executeWithdrawal(request);
+      const response = await executeWithdrawal({ 
+        upiId: withdrawModal.upiId, 
+        name: withdrawModal.name, 
+        amount: amountNum 
+      });
       
       if (response.success) {
-        setWithdrawModal(prev => ({
-          ...prev,
-          status: 'success',
-          responseMessage: response.message || 'Withdrawal request submitted successfully',
+        setWithdrawModal(prev => ({ 
+          ...prev, 
+          status: 'success', 
+          responseMessage: response.message 
         }));
-        
-        setPortfolio(prev => ({
-          ...prev,
-          balance: prev.balance - amountNum,
-        }));
-        
+        setPortfolio(prev => ({ ...prev, balance: prev.balance - amountNum }));
         playSound('success');
-        showToast(`Withdrawal request for ₹${formatCurrency(amountNum)} submitted`, 'success');
+        showToast(`💸 Withdrawal request for ₹${formatCurrency(amountNum)} submitted`, 'success');
         
-        // Auto close modal after 3 seconds
         setTimeout(() => {
-          setWithdrawModal(prev => ({ ...prev, isOpen: false }));
+          setWithdrawModal(prev => ({ 
+            ...prev, 
+            isOpen: false, 
+            status: 'idle', 
+            upiId: '', 
+            name: '', 
+            amount: '' 
+          }));
         }, 3000);
-      } else {
-        throw new Error(response.message || 'Withdrawal failed');
       }
     } catch (error) {
-      console.error('Withdrawal failed:', error);
-      setWithdrawModal(prev => ({
-        ...prev,
-        status: 'error',
-        responseMessage: error instanceof Error ? error.message : 'Withdrawal processing failed',
-      }));
+      setWithdrawModal(prev => ({ ...prev, status: 'error', responseMessage: 'Withdrawal failed' }));
       playSound('error');
       showToast('Withdrawal failed. Please try again.', 'error');
     }
   }, [withdrawModal, portfolio.balance, playSound, showToast]);
-  
-  // ==========================================================================
-  // EFFECTS
-  // ==========================================================================
-  
+
+  // Effects
   useEffect(() => {
     loadStocks();
     loadMarketStatusData();
-    
-    // Refresh market status every minute
     const marketInterval = setInterval(loadMarketStatusData, 60000);
-    // Refresh stock prices every 5 seconds
     const priceInterval = setInterval(loadStocks, 5000);
-    
     return () => {
       clearInterval(marketInterval);
       clearInterval(priceInterval);
     };
   }, [loadStocks, loadMarketStatusData]);
-  
+
   useEffect(() => {
     if (selectedStock) {
       loadStockHistory(selectedStock.symbol);
     }
   }, [selectedStock, timeframe, loadStockHistory]);
-  
+
   useEffect(() => {
-    // Update estimated cost in order panel
     const quantityNum = parseInt(orderPanel.quantity) || 0;
     let priceNum = parseFloat(orderPanel.price) || 0;
-    
     if (orderPanel.orderType === 'MARKET' && orderPanel.symbol) {
       const currentStock = stocks.find(s => s.symbol === orderPanel.symbol);
-      if (currentStock) {
-        priceNum = currentStock.price;
-      }
+      if (currentStock) priceNum = currentStock.price;
     }
-    
-    setOrderPanel(prev => ({
-      ...prev,
-      estimatedCost: quantityNum * priceNum,
-    }));
+    setOrderPanel(prev => ({ ...prev, estimatedCost: quantityNum * priceNum }));
   }, [orderPanel.quantity, orderPanel.price, orderPanel.orderType, orderPanel.symbol, stocks]);
-  
-  useEffect(() => {
-    // Update real-time prices from WebSocket
-    if (wsMessage && wsMessage.type === 'price_update') {
-      setStocks(prev => prev.map(stock =>
-        stock.symbol === wsMessage.symbol
-          ? { ...stock, price: wsMessage.price, change: wsMessage.change, changePercent: wsMessage.changePercent }
-          : stock
-      ));
-    }
-  }, [wsMessage]);
-  
-  // ==========================================================================
-  // RENDER HELPERS
-  // ==========================================================================
-  
+
+  // Watchlist stocks
+  const watchlistStocks = useMemo(() => {
+    const symbols = new Set(watchlist.map(item => item.symbol));
+    return stocks.filter(stock => symbols.has(stock.symbol));
+  }, [stocks, watchlist]);
+
+  // Render functions
   const renderMarketStatus = () => {
     if (!marketStatus || !marketCountdown) return null;
-    
     return (
       <div className={`market-status ${marketStatus.isOpen ? 'open' : 'closed'}`}>
         <div className="market-status-indicator">
           <span className={`status-dot ${marketStatus.isOpen ? 'live' : 'inactive'}`}></span>
           <span className="status-text">{marketStatus.isOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
         </div>
-        {!marketStatus.isOpen && marketCountdown.nextOpenTime && (
+        {marketCountdown.timeRemaining && (
           <div className="market-countdown">
             <i className="fas fa-clock"></i>
-            <span>Opens in: {marketCountdown.nextOpenTime}</span>
-          </div>
-        )}
-        {marketStatus.isOpen && marketCountdown.timeRemaining && (
-          <div className="market-countdown">
-            <i className="fas fa-hourglass-half"></i>
-            <span>Closes in: {marketCountdown.timeRemaining}</span>
+            <span>{marketStatus.isOpen ? 'Closes in: ' : 'Opens in: '}{marketCountdown.timeRemaining}</span>
           </div>
         )}
       </div>
     );
   };
-  
-  const renderStockCard = (stock: Stock, showRemoveButton = false) => (
-    <div
-      key={stock.symbol}
+
+  const renderStockCard = (stock: Stock, showAddButton = false, showRemoveButton = false) => (
+    <div 
+      key={stock.symbol} 
       className={`stock-card ${selectedStock?.symbol === stock.symbol ? 'selected' : ''}`}
       onClick={() => setSelectedStock(stock)}
     >
@@ -878,23 +668,42 @@ const App: React.FC = () => {
       <div className="stock-price-info">
         <div className="stock-price">₹{formatCurrency(stock.price)}</div>
         <div className={`stock-change ${stock.change >= 0 ? 'positive' : 'negative'}`}>
-          {stock.change >= 0 ? '+' : ''}{formatCurrency(stock.change)} ({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)
+          {stock.change >= 0 ? '+' : ''}{formatCurrency(stock.change)} 
+          ({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)
         </div>
       </div>
+      {showAddButton && (
+        <button 
+          className="add-watchlist-btn"
+          onClick={(e) => { e.stopPropagation(); addToWatchlist(stock); }}
+        >
+          <i className="fas fa-plus"></i>
+        </button>
+      )}
       {showRemoveButton && (
-        <button
+        <button 
           className="remove-watchlist-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            removeFromWatchlist(stock.symbol);
-          }}
+          onClick={(e) => { e.stopPropagation(); removeFromWatchlist(stock.symbol); }}
         >
           <i className="fas fa-times"></i>
         </button>
       )}
     </div>
   );
-  
+
+  const renderSearchResults = () => {
+    if (!showSearchResults || !searchQuery.trim()) return null;
+    return (
+      <div className="search-results-dropdown">
+        {filteredStocks.length === 0 ? (
+          <div className="no-results">No stocks found for "{searchQuery}"</div>
+        ) : (
+          filteredStocks.slice(0, 10).map(stock => renderStockCard(stock, true, false))
+        )}
+      </div>
+    );
+  };
+
   const renderPortfolioPanel = () => (
     <div className="portfolio-panel">
       <div className="portfolio-summary">
@@ -923,7 +732,8 @@ const App: React.FC = () => {
           <div className="pl-item">
             <div className="pl-label">Total P&L</div>
             <div className={`pl-value ${portfolio.totalPL >= 0 ? 'positive' : 'negative'}`}>
-              {portfolio.totalPL >= 0 ? '+' : ''}₹{formatCurrency(portfolio.totalPL)} ({portfolio.totalPLPercentage.toFixed(2)}%)
+              {portfolio.totalPL >= 0 ? '+' : ''}₹{formatCurrency(portfolio.totalPL)} 
+              ({portfolio.totalPLPercentage.toFixed(2)}%)
             </div>
           </div>
           <div className="pl-item">
@@ -1003,7 +813,7 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-  
+
   const renderOrderPanel = () => (
     <div className="order-panel">
       <div className="order-type-toggle">
@@ -1031,7 +841,7 @@ const App: React.FC = () => {
             <option value="">Select stock</option>
             {stocks.map(stock => (
               <option key={stock.symbol} value={stock.symbol}>
-                {stock.symbol} - {stock.name}
+                {stock.symbol} - {stock.name} (₹{formatCurrency(stock.price)})
               </option>
             ))}
           </select>
@@ -1098,7 +908,7 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-  
+
   const renderDepositModal = () => (
     <div className={`modal ${depositModal.isOpen ? 'active' : ''}`} onClick={() => depositModal.status === 'idle' && setDepositModal(prev => ({ ...prev, isOpen: false }))}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1108,7 +918,6 @@ const App: React.FC = () => {
             <i className="fas fa-times"></i>
           </button>
         </div>
-        
         <div className="modal-body">
           {depositModal.status === 'idle' && (
             <>
@@ -1128,14 +937,12 @@ const App: React.FC = () => {
               </button>
             </>
           )}
-          
           {depositModal.status === 'processing' && (
             <div className="loading-state">
               <i className="fas fa-spinner fa-spin"></i>
               <p>Processing deposit request...</p>
             </div>
           )}
-          
           {depositModal.status === 'success' && (
             <div className="success-state">
               <i className="fas fa-check-circle"></i>
@@ -1152,7 +959,6 @@ const App: React.FC = () => {
               </button>
             </div>
           )}
-          
           {depositModal.status === 'error' && (
             <div className="error-state">
               <i className="fas fa-exclamation-triangle"></i>
@@ -1167,7 +973,7 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-  
+
   const renderWithdrawModal = () => (
     <div className={`modal ${withdrawModal.isOpen ? 'active' : ''}`} onClick={() => withdrawModal.status === 'idle' && setWithdrawModal(prev => ({ ...prev, isOpen: false }))}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1177,7 +983,6 @@ const App: React.FC = () => {
             <i className="fas fa-times"></i>
           </button>
         </div>
-        
         <div className="modal-body">
           {withdrawModal.status === 'idle' && (
             <>
@@ -1190,7 +995,6 @@ const App: React.FC = () => {
                   placeholder="username@bank"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Full Name</label>
                 <input
@@ -1200,7 +1004,6 @@ const App: React.FC = () => {
                   placeholder="Enter your name"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Amount (Max ₹{formatCurrency(portfolio.balance)})</label>
                 <input
@@ -1213,20 +1016,17 @@ const App: React.FC = () => {
                   step="100"
                 />
               </div>
-              
               <button className="btn-submit" onClick={handleWithdrawal}>
                 Request Withdrawal
               </button>
             </>
           )}
-          
           {withdrawModal.status === 'processing' && (
             <div className="loading-state">
               <i className="fas fa-spinner fa-spin"></i>
               <p>Processing withdrawal request...</p>
             </div>
           )}
-          
           {withdrawModal.status === 'success' && (
             <div className="success-state">
               <i className="fas fa-check-circle"></i>
@@ -1238,7 +1038,6 @@ const App: React.FC = () => {
               </button>
             </div>
           )}
-          
           {withdrawModal.status === 'error' && (
             <div className="error-state">
               <i className="fas fa-exclamation-triangle"></i>
@@ -1253,18 +1052,15 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-  
-  // ==========================================================================
-  // MAIN RENDER
-  // ==========================================================================
-  
+
+  // Main Render
   return (
     <div className="app">
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? 'open' : 'closed'} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <i className="fas fa-chart-line"></i>
+            <img src="/assets/images/logo.svg" alt="Trading Pro" style={{ width: '32px', height: '32px' }} />
             <span>TRADING<span>PRO</span></span>
           </div>
           <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
@@ -1273,44 +1069,33 @@ const App: React.FC = () => {
         </div>
         
         <nav className="sidebar-nav">
-          <button
-            className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
+          <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
             <i className="fas fa-tachometer-alt"></i>
             <span>Dashboard</span>
           </button>
-          <button
-            className={`nav-item ${activeTab === 'portfolio' ? 'active' : ''}`}
-            onClick={() => setActiveTab('portfolio')}
-          >
+          <button className={`nav-item ${activeTab === 'watchlist' ? 'active' : ''}`} onClick={() => setActiveTab('watchlist')}>
+            <i className="fas fa-star"></i>
+            <span>Watchlist</span>
+            {watchlist.length > 0 && <span className="badge">{watchlist.length}</span>}
+          </button>
+          <button className={`nav-item ${activeTab === 'portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('portfolio')}>
             <i className="fas fa-briefcase"></i>
             <span>Portfolio</span>
           </button>
-          <button
-            className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
-          >
+          <button className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
             <i className="fas fa-list-ul"></i>
             <span>Orders</span>
           </button>
         </nav>
         
         <div className="sidebar-footer">
-          <div className="market-status-widget">
-            {renderMarketStatus()}
-          </div>
+          {renderMarketStatus()}
         </div>
       </aside>
       
-      {/* Mobile menu overlay */}
-      {isMobileMenuOpen && (
-        <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
-      )}
+      {isMobileMenuOpen && <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
       
-      {/* Main Content */}
       <main className="main-content">
-        {/* Header */}
         <header className="app-header">
           <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             <i className="fas fa-bars"></i>
@@ -1320,10 +1105,13 @@ const App: React.FC = () => {
             <i className="fas fa-search"></i>
             <input
               type="text"
-              placeholder="Search stocks..."
+              placeholder="Search stocks by name or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchQuery && setShowSearchResults(true)}
+              onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
             />
+            {renderSearchResults()}
           </div>
           
           <div className="header-actions">
@@ -1337,34 +1125,16 @@ const App: React.FC = () => {
           </div>
         </header>
         
-        {/* Content Area */}
         <div className="content-area">
           {activeTab === 'dashboard' && (
             <>
-              {/* Watchlist Section */}
-              <div className="watchlist-section">
-                <div className="section-header">
-                  <h2><i className="fas fa-star"></i> Watchlist</h2>
-                  <button
-                    className="refresh-btn"
-                    onClick={loadStocks}
-                    disabled={isLoadingStocks}
-                  >
-                    <i className={`fas fa-sync-alt ${isLoadingStocks ? 'fa-spin' : ''}`}></i>
-                  </button>
+              {/* Market Status Banner */}
+              <div className="market-banner">
+                <div className="market-time">
+                  <i className="fas fa-calendar-alt"></i>
+                  <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
-                
-                <div className="watchlist-container">
-                  {filteredWatchlistStocks.length === 0 ? (
-                    <div className="empty-watchlist">
-                      <i className="fas fa-star-of-life"></i>
-                      <p>Your watchlist is empty</p>
-                      <p className="hint">Click + on any stock to add</p>
-                    </div>
-                  ) : (
-                    filteredWatchlistStocks.map(stock => renderStockCard(stock, true))
-                  )}
-                </div>
+                {renderMarketStatus()}
               </div>
               
               {/* Chart Section */}
@@ -1375,43 +1145,33 @@ const App: React.FC = () => {
                       <>
                         <h2>{selectedStock.symbol}</h2>
                         <span className="stock-name-chart">{selectedStock.name}</span>
+                        <div className="stock-current-price">
+                          <span className="price">₹{formatCurrency(selectedStock.price)}</span>
+                          <span className={`change ${selectedStock.change >= 0 ? 'positive' : 'negative'}`}>
+                            {selectedStock.change >= 0 ? '+' : ''}{formatCurrency(selectedStock.change)} ({selectedStock.changePercent >= 0 ? '+' : ''}{selectedStock.changePercent.toFixed(2)}%)
+                          </span>
+                        </div>
                       </>
                     )}
                   </div>
                   <div className="chart-controls">
                     <div className="chart-type-toggle">
-                      <button
-                        className={`chart-type-btn ${chartType === 'candlestick' ? 'active' : ''}`}
-                        onClick={() => setChartType('candlestick')}
-                      >
-                        Candlestick
+                      <button className={`chart-type-btn ${chartType === 'candlestick' ? 'active' : ''}`} onClick={() => setChartType('candlestick')}>
+                        <i className="fas fa-chart-bar"></i> Candlestick
                       </button>
-                      <button
-                        className={`chart-type-btn ${chartType === 'line' ? 'active' : ''}`}
-                        onClick={() => setChartType('line')}
-                      >
-                        Line
+                      <button className={`chart-type-btn ${chartType === 'line' ? 'active' : ''}`} onClick={() => setChartType('line')}>
+                        <i className="fas fa-chart-line"></i> Line
+                      </button>
+                      <button className={`chart-type-btn ${chartType === 'area' ? 'active' : ''}`} onClick={() => setChartType('area')}>
+                        <i className="fas fa-chart-area"></i> Area
                       </button>
                     </div>
                     <div className="timeframe-toggle">
-                      <button
-                        className={`timeframe-btn ${timeframe === '1m' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('1m')}
-                      >
-                        1m
-                      </button>
-                      <button
-                        className={`timeframe-btn ${timeframe === '5m' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('5m')}
-                      >
-                        5m
-                      </button>
-                      <button
-                        className={`timeframe-btn ${timeframe === '1D' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('1D')}
-                      >
-                        1D
-                      </button>
+                      <button className={`timeframe-btn ${timeframe === '1m' ? 'active' : ''}`} onClick={() => setTimeframe('1m')}>1m</button>
+                      <button className={`timeframe-btn ${timeframe === '5m' ? 'active' : ''}`} onClick={() => setTimeframe('5m')}>5m</button>
+                      <button className={`timeframe-btn ${timeframe === '1D' ? 'active' : ''}`} onClick={() => setTimeframe('1D')}>1D</button>
+                      <button className={`timeframe-btn ${timeframe === '1W' ? 'active' : ''}`} onClick={() => setTimeframe('1W')}>1W</button>
+                      <button className={`timeframe-btn ${timeframe === '1M' ? 'active' : ''}`} onClick={() => setTimeframe('1M')}>1M</button>
                     </div>
                   </div>
                 </div>
@@ -1424,31 +1184,93 @@ const App: React.FC = () => {
                     </div>
                   ) : (
                     <Suspense fallback={<div className="chart-loading">Loading chart...</div>}>
-                      <ChartComponent
-                        data={stockHistory}
-                        type={chartType}
-                        symbol={selectedStock?.symbol || ''}
-                      />
+                      <AdvancedChart data={stockHistory} type={chartType} symbol={selectedStock?.symbol || ''} />
                     </Suspense>
                   )}
                 </div>
               </div>
               
-              {/* Market Overview */}
-              <div className="market-overview">
-                <div className="section-header">
-                  <h2><i className="fas fa-chart-simple"></i> Market Overview</h2>
-                </div>
-                <div className="stocks-grid">
-                  {filteredStocks.slice(0, 10).map(stock => renderStockCard(stock, !watchlist.some(w => w.symbol === stock.symbol)))}
-                  {filteredStocks.length > 10 && (
-                    <button className="view-more-btn">
-                      View More <i className="fas fa-arrow-right"></i>
+              {/* Market Movers & News Grid */}
+              <div className="market-info-grid">
+                {/* Market Movers */}
+                <div className="market-movers-section">
+                  <div className="section-header">
+                    <h2><i className="fas fa-rocket"></i> Top Movers</h2>
+                    <button className="btn-small" onClick={() => setShowLeaderboard(!showLeaderboard)}>
+                      {showLeaderboard ? 'Show Less' : 'View All'}
                     </button>
-                  )}
+                  </div>
+                  <div className="movers-grid">
+                    {(showLeaderboard ? marketMovers : marketMovers.slice(0, 3)).map(mover => (
+                      <div key={mover.symbol} className="mover-card" onClick={() => {
+                        const stock = stocks.find(s => s.symbol === mover.symbol);
+                        if (stock) setSelectedStock(stock);
+                      }}>
+                        <div className="mover-info">
+                          <div>
+                            <h4>{mover.symbol}</h4>
+                            <small>{mover.name}</small>
+                          </div>
+                          <div className="mover-stats">
+                            <div className="mover-price">₹{formatCurrency(mover.price)}</div>
+                            <div className={`mover-change ${mover.changePercent >= 0 ? 'positive' : 'negative'}`}>
+                              {mover.changePercent >= 0 ? '+' : ''}{mover.changePercent.toFixed(2)}%
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mover-volume">
+                          <i className="fas fa-chart-simple"></i> Vol: {(mover.volume / 100000).toFixed(1)}L
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* News Section */}
+                <div className="news-section">
+                  <div className="section-header">
+                    <h2><i className="fas fa-newspaper"></i> Market News</h2>
+                  </div>
+                  <div className="news-list">
+                    {news.map(item => (
+                      <div key={item.id} className="news-item">
+                        <div className="news-impact">
+                          <span className={`impact-dot ${item.impact}`}></span>
+                        </div>
+                        <div className="news-content">
+                          <h4>{item.title}</h4>
+                          <div className="news-meta">
+                            <span><i className="far fa-clock"></i> {item.time}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
+          )}
+          
+          {activeTab === 'watchlist' && (
+            <div className="watchlist-section">
+              <div className="section-header">
+                <h2><i className="fas fa-star"></i> My Watchlist</h2>
+                <button className="refresh-btn" onClick={loadStocks} disabled={isLoadingStocks}>
+                  <i className={`fas fa-sync-alt ${isLoadingStocks ? 'fa-spin' : ''}`}></i>
+                </button>
+              </div>
+              <div className="watchlist-container">
+                {watchlistStocks.length === 0 ? (
+                  <div className="empty-watchlist">
+                    <i className="fas fa-star-of-life"></i>
+                    <h3>Your watchlist is empty</h3>
+                    <p>Search for stocks and click the + button to add them to your watchlist</p>
+                  </div>
+                ) : (
+                  watchlistStocks.map(stock => renderStockCard(stock, false, true))
+                )}
+              </div>
+            </div>
           )}
           
           {activeTab === 'portfolio' && renderPortfolioPanel()}
@@ -1502,11 +1324,9 @@ const App: React.FC = () => {
         </div>
       </main>
       
-      {/* Modals */}
       {renderDepositModal()}
       {renderWithdrawModal()}
       
-      {/* Toast Notifications */}
       <div className="toast-container">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast toast-${toast.type}`} onClick={() => removeToast(toast.id)}>
@@ -1516,9 +1336,6 @@ const App: React.FC = () => {
               {toast.type === 'info' && <i className="fas fa-info-circle"></i>}
             </div>
             <div className="toast-message">{toast.message}</div>
-            <button className="toast-close">
-              <i className="fas fa-times"></i>
-            </button>
           </div>
         ))}
       </div>
