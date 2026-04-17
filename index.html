@@ -3,63 +3,398 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="description" content="Professional Trading Platform - Fast, responsive stock trading">
+    <meta name="description" content="Professional Trading Platform - Real-time stock trading application with advanced charting, portfolio management, and order execution">
     <meta name="theme-color" content="#0a0e1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#0a0e1a">
+    <meta name="msapplication-TileImage" content="/assets/images/logo.svg">
     
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="Trading Platform | Professional Stock Trading Interface">
+    <meta property="og:description" content="Real-time stock trading, advanced charts, portfolio management, and order execution">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/images/og-image.png">
+    <meta property="og:url" content="https://trading-platform.onrender.com">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Trading Platform">
+    <meta name="twitter:description" content="Professional Stock Trading Interface">
+    <meta name="twitter:image" content="/assets/images/og-image.png">
+    
+    <!-- Preconnect to Google Fonts for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/assets/images/logo.svg">
-    <title>Trading Platform | Fast Trading</title>
+    <link rel="apple-touch-icon" href="/assets/images/logo.svg">
+    <link rel="manifest" href="/manifest.json">
     
+    <title>Trading Platform | Professional Stock Trading Interface</title>
+    
+    <!-- Critical CSS for initial render - prevents FOUC -->
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Inter',sans-serif;background:#0a0e1a;color:#e1e4e8;overflow-x:hidden}
-        #root{min-height:100vh;opacity:0;transition:opacity .2s}
-        #root.loaded{opacity:1}
-        .initial-loader{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 20% 80%,#0a0e1a,#05080f);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
-        .initial-loader.fade-out{opacity:0;visibility:hidden}
-        .loader-content{text-align:center}
-        .loader-logo{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:20px;animation:pulse 1.5s ease-in-out infinite}
-        .loader-spinner{width:40px;height:40px;margin:0 auto 16px;border:3px solid rgba(0,212,255,0.1);border-top-color:#00d4ff;border-radius:50%;animation:spin .6s linear infinite}
-        .loader-text{color:#8b92a8;font-size:12px;letter-spacing:2px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
-        @media (max-width:768px){.loader-logo{font-size:1.5rem}.loader-spinner{width:32px;height:32px}}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0e1a;
+            color: #e1e4e8;
+            overflow-x: hidden;
+        }
+        
+        #root {
+            min-height: 100vh;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        #root.loaded {
+            opacity: 1;
+        }
+        
+        /* Modern Loading Spinner */
+        .initial-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 80%, #0a0e1a 0%, #05080f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        .initial-loader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .loader-content {
+            text-align: center;
+            animation: fadeInUp 0.6s ease;
+        }
+        
+        .loader-logo {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 24px;
+            animation: pulse 2s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .loader-logo i {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 24px;
+            position: relative;
+        }
+        
+        .loader-spinner::before,
+        .loader-spinner::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        .loader-spinner::before {
+            width: 100%;
+            height: 100%;
+            border: 3px solid rgba(0, 212, 255, 0.1);
+            border-top-color: #00d4ff;
+        }
+        
+        .loader-spinner::after {
+            width: 70%;
+            height: 70%;
+            top: 15%;
+            left: 15%;
+            border: 3px solid rgba(123, 47, 247, 0.1);
+            border-top-color: #7b2ff7;
+            animation-direction: reverse;
+            animation-duration: 1s;
+        }
+        
+        .loader-text {
+            color: #8b92a8;
+            font-size: 0.875rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 24px;
+        }
+        
+        .loader-progress-bar {
+            width: 200px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin: 20px auto 0;
+            overflow: hidden;
+        }
+        
+        .loader-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            animation: loading 2s ease infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes loading {
+            0% { width: 0%; opacity: 0.5; }
+            50% { width: 70%; opacity: 1; }
+            100% { width: 100%; opacity: 0.5; }
+        }
+        
+        /* Toast container critical styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+            
+            .loader-logo {
+                font-size: 2rem;
+            }
+            
+            .loader-logo i {
+                font-size: 2rem;
+            }
+            
+            .loader-spinner {
+                width: 48px;
+                height: 48px;
+            }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #0a0e1a;
+            }
+        }
+        
+        /* Reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            .loader-spinner::before,
+            .loader-spinner::after {
+                animation-duration: 3s;
+            }
+            
+            .loader-logo {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Initial Loading Screen -->
     <div id="initial-loader" class="initial-loader">
         <div class="loader-content">
-            <div class="loader-logo"><i class="fas fa-chart-line"></i> TRADING PRO</div>
+            <div class="loader-logo">
+                <i class="fas fa-chart-line"></i>
+                <span>TRADING<span style="color: #00d4ff;">PRO</span></span>
+            </div>
             <div class="loader-spinner"></div>
-            <div class="loader-text">LOADING...</div>
+            <div class="loader-progress-bar">
+                <div class="loader-progress-fill"></div>
+            </div>
+            <div class="loader-text">INITIALIZING PLATFORM...</div>
         </div>
     </div>
+    
+    <!-- React Root Element -->
     <div id="root"></div>
-    <div id="toast-container" style="position:fixed;top:20px;right:20px;z-index:10000"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Main Script Entry -->
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Initialization Script -->
     <script>
-        (function(){
-            const loader = document.getElementById('initial-loader');
-            const removeLoader = () => {
-                if(!loader) return;
-                loader.classList.add('fade-out');
-                setTimeout(() => {
-                    loader.style.display = 'none';
-                    document.getElementById('root')?.classList.add('loaded');
-                }, 300);
-            };
-            window.addEventListener('load', () => setTimeout(removeLoader, 200));
-            if(document.readyState === 'complete') setTimeout(removeLoader, 50);
+        (function() {
+            // Remove loader when React mounts
+            function removeLoader() {
+                const loader = document.getElementById('initial-loader');
+                if (loader) {
+                    loader.classList.add('fade-out');
+                    setTimeout(function() {
+                        loader.style.display = 'none';
+                        const root = document.getElementById('root');
+                        if (root) {
+                            root.classList.add('loaded');
+                        }
+                    }, 500);
+                }
+            }
+            
+            // Progress bar animation
+            let progress = 0;
+            const progressBar = document.querySelector('.loader-progress-fill');
+            const progressText = document.querySelector('.loader-text');
+            
+            const progressMessages = [
+                'INITIALIZING PLATFORM...',
+                'LOADING MODULES...',
+                'CONNECTING TO MARKET DATA...',
+                'SETTING UP CHARTS...',
+                'ALMOST READY...',
+                'WELCOME TO TRADING PRO!'
+            ];
+            
+            let messageIndex = 0;
+            const progressInterval = setInterval(function() {
+                if (progress < 90) {
+                    progress += Math.random() * 15;
+                    if (progress > 90) progress = 90;
+                    if (progressBar) {
+                        progressBar.style.width = progress + '%';
+                    }
+                }
+                
+                if (messageIndex < progressMessages.length - 1) {
+                    messageIndex++;
+                    if (progressText) {
+                        progressText.textContent = progressMessages[messageIndex];
+                    }
+                }
+            }, 800);
+            
+            // Handle load event
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                    }
+                    if (progressText) {
+                        progressText.textContent = 'READY!';
+                    }
+                    clearInterval(progressInterval);
+                    removeLoader();
+                }, 1000);
+            });
+            
+            // Service Worker registration for offline support
+            if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+                });
+            }
+            
+            // Handle online/offline status
+            window.addEventListener('online', function() {
+                console.log('Application is online');
+                window.dispatchEvent(new CustomEvent('app-online'));
+            });
+            
+            window.addEventListener('offline', function() {
+                console.log('Application is offline');
+                window.dispatchEvent(new CustomEvent('app-offline'));
+            });
+            
+            // Performance monitoring
+            if (typeof window.performance !== 'undefined') {
+                const perfData = performance.getEntriesByType('navigation')[0];
+                if (perfData) {
+                    console.log(`Page load time: ${(perfData.loadEventEnd - perfData.fetchStart).toFixed(2)}ms`);
+                }
+            }
+            
+            // Error boundary for uncaught errors
+            window.addEventListener('error', function(event) {
+                console.error('Global error caught:', event.error);
+                window.dispatchEvent(new CustomEvent('app-error', { detail: event.error }));
+            });
+            
+            // Handle unhandled promise rejections
+            window.addEventListener('unhandledrejection', function(event) {
+                console.error('Unhandled promise rejection:', event.reason);
+                window.dispatchEvent(new CustomEvent('app-error', { detail: event.reason }));
+            });
+            
+            // Prevent pinch zoom on touch devices (optional)
+            document.addEventListener('touchmove', function(e) {
+                if (e.scale !== 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // Add viewport height fix for mobile browsers
+            function setVH() {
+                let vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+            
+            setVH();
+            window.addEventListener('resize', setVH);
+            
+            // Console welcome message
+            console.log('%c🚀 TRADING PRO PLATFORM v3.0.0', 'color: #00d4ff; font-size: 16px; font-weight: bold;');
+            console.log('%cProfessional Trading Interface Loaded Successfully', 'color: #8b92a8; font-size: 12px;');
         })();
     </script>
 </body>
