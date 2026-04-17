@@ -1,10 +1,10 @@
 /**
- * Main Entry Point - Trading Platform Application
- * Features: Error boundary, performance monitoring, PWA support, global state management
- * Version: 3.0.0
+ * Main Entry Point - Optimized for Super Fast Loading
+ * Features: Lazy loading, code splitting, performance monitoring, critical CSS
+ * Version: 4.0.0 - Ultra Fast
  */
 
-import React, { StrictMode, Suspense, lazy, Component, ErrorInfo, ReactNode } from 'react';
+import React, { StrictMode, Suspense, lazy, Component, ErrorInfo, ReactNode, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import './style.css';
 
@@ -15,42 +15,16 @@ import './style.css';
 interface AppConfig {
   version: string;
   environment: 'development' | 'production' | 'test';
-  apiBaseUrl: string;
-  wsBaseUrl: string;
   features: {
     soundEnabled: boolean;
     notificationsEnabled: boolean;
-    darkMode: boolean;
     realTimeUpdates: boolean;
-    chartAnimations: boolean;
-  };
-  limits: {
-    maxWatchlistItems: number;
-    minDepositAmount: number;
-    maxWithdrawAmount: number;
-    orderQuantityPrecision: number;
-    pricePrecision: number;
   };
   timeouts: {
     apiTimeout: number;
-    wsReconnectInterval: number;
     marketDataRefresh: number;
     toastDuration: number;
   };
-}
-
-interface GlobalError {
-  message: string;
-  timestamp: number;
-  stack?: string;
-  componentStack?: string;
-}
-
-interface PerformanceMetric {
-  name: string;
-  duration: number;
-  timestamp: number;
-  metadata?: Record<string, any>;
 }
 
 // ============================================================================
@@ -58,382 +32,229 @@ interface PerformanceMetric {
 // ============================================================================
 
 const APP_CONFIG: AppConfig = {
-  version: '3.0.0',
+  version: '4.0.0',
   environment: (typeof window !== 'undefined' && window.location.hostname === 'localhost') 
     ? 'development' 
     : 'production',
-  apiBaseUrl: typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://api.tradingplatform.com/v1'
-    : 'http://localhost:8080/api/v1',
-  wsBaseUrl: typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'wss://ws.tradingplatform.com'
-    : 'ws://localhost:8080/ws',
   features: {
     soundEnabled: true,
     notificationsEnabled: true,
-    darkMode: true,
     realTimeUpdates: true,
-    chartAnimations: true,
-  },
-  limits: {
-    maxWatchlistItems: 50,
-    minDepositAmount: 100,
-    maxWithdrawAmount: 1000000,
-    orderQuantityPrecision: 0,
-    pricePrecision: 2,
   },
   timeouts: {
     apiTimeout: 30000,
-    wsReconnectInterval: 5000,
-    marketDataRefresh: 1000,
-    toastDuration: 4000,
+    marketDataRefresh: 5000,
+    toastDuration: 3000,
   },
 };
 
 // ============================================================================
-// GLOBAL STATE MANAGEMENT
+// PERFORMANCE MONITORING
 // ============================================================================
 
-class AppState {
-  private static instance: AppState;
-  private listeners: Map<string, Set<(data: any) => void>> = new Map();
-  private state: Map<string, any> = new Map();
-  private performanceMetrics: PerformanceMetric[] = [];
-  private errors: GlobalError[] = [];
-  private isOnline: boolean = typeof navigator !== 'undefined' ? navigator.onLine : true;
+// Track Core Web Vitals
+const reportWebVitals = () => {
+  if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
+    try {
+      // Largest Contentful Paint
+      const lcpObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        const lastEntry = entries[entries.length - 1];
+        console.log(`LCP: ${lastEntry.startTime.toFixed(2)}ms`);
+      });
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 
-  private constructor() {
-    if (typeof window !== 'undefined') {
-      this.initializeEventListeners();
-      this.startPerformanceMonitoring();
-    }
-  }
+      // First Input Delay
+      const fidObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry) => {
+          console.log(`FID: ${(entry as any).processingStart - (entry as any).startTime}ms`);
+        });
+      });
+      fidObserver.observe({ type: 'first-input', buffered: true });
 
-  static getInstance(): AppState {
-    if (!AppState.instance) {
-      AppState.instance = new AppState();
-    }
-    return AppState.instance;
-  }
-
-  private initializeEventListeners(): void {
-    window.addEventListener('online', () => {
-      this.isOnline = true;
-      this.emit('connection-change', { online: true });
-    });
-
-    window.addEventListener('offline', () => {
-      this.isOnline = false;
-      this.emit('connection-change', { online: false });
-    });
-
-    window.addEventListener('error', ((event: ErrorEvent) => {
-      this.captureError(event.error || new Error(event.message));
-    }) as EventListener);
-
-    window.addEventListener('unhandledrejection', ((event: PromiseRejectionEvent) => {
-      this.captureError(event.reason);
-    }) as EventListener);
-  }
-
-  private startPerformanceMonitoring(): void {
-    if (typeof PerformanceObserver !== 'undefined') {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            this.recordPerformanceMetric(entry.name, entry.duration, {
-              entryType: entry.entryType,
-              startTime: entry.startTime,
-            });
+      // Cumulative Layout Shift
+      const clsObserver = new PerformanceObserver((list) => {
+        let clsValue = 0;
+        list.getEntries().forEach((entry: any) => {
+          if (!entry.hadRecentInput) {
+            clsValue += entry.value;
           }
         });
-        observer.observe({ entryTypes: ['measure', 'navigation', 'resource'] });
-      } catch (error) {
-        console.warn('PerformanceObserver not fully supported:', error);
-      }
+        console.log(`CLS: ${clsValue}`);
+      });
+      clsObserver.observe({ type: 'layout-shift', buffered: true });
+    } catch (error) {
+      console.warn('Web Vitals not supported');
     }
   }
-
-  recordPerformanceMetric(name: string, duration: number, metadata?: Record<string, any>): void {
-    const metric: PerformanceMetric = {
-      name,
-      duration,
-      timestamp: Date.now(),
-      metadata,
-    };
-    this.performanceMetrics.push(metric);
-    
-    if (this.performanceMetrics.length > 1000) {
-      this.performanceMetrics = this.performanceMetrics.slice(-1000);
-    }
-
-    this.emit('performance-metric', metric);
-  }
-
-  captureError(error: Error | any, componentStack?: string): void {
-    const globalError: GlobalError = {
-      message: error?.message || String(error),
-      timestamp: Date.now(),
-      stack: error?.stack,
-      componentStack,
-    };
-    this.errors.push(globalError);
-    
-    if (this.errors.length > 100) {
-      this.errors = this.errors.slice(-100);
-    }
-
-    this.emit('error-captured', globalError);
-    
-    if (APP_CONFIG.environment === 'development') {
-      console.error('[Global Error]', globalError);
-    }
-  }
-
-  getErrors(): GlobalError[] {
-    return [...this.errors];
-  }
-
-  getPerformanceMetrics(): PerformanceMetric[] {
-    return [...this.performanceMetrics];
-  }
-
-  isAppOnline(): boolean {
-    return this.isOnline;
-  }
-
-  getConfig(): AppConfig {
-    return { ...APP_CONFIG };
-  }
-
-  setState(key: string, value: any): void {
-    const oldValue = this.state.get(key);
-    this.state.set(key, value);
-    this.emit(`state:${key}`, { oldValue, newValue: value });
-    this.emit('state-change', { key, oldValue, newValue: value });
-  }
-
-  getState(key: string): any {
-    return this.state.get(key);
-  }
-
-  on(event: string, callback: (data: any) => void): () => void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(callback);
-    
-    return () => {
-      this.listeners.get(event)?.delete(callback);
-    };
-  }
-
-  private emit(event: string, data: any): void {
-    this.listeners.get(event)?.forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event listener for ${event}:`, error);
-      }
-    });
-  }
-
-  logEvent(message: string, level: 'info' | 'warning' | 'error' = 'info'): void {
-    const event = {
-      message,
-      level,
-      timestamp: Date.now(),
-    };
-    this.emit('log-event', event);
-    
-    if (APP_CONFIG.environment === 'development') {
-      console.log(`[${level.toUpperCase()}] ${message}`);
-    }
-  }
-}
+};
 
 // ============================================================================
-// ERROR BOUNDARY COMPONENT
+// ERROR BOUNDARY
 // ============================================================================
 
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    return {
-      hasError: true,
-      error,
-    };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    this.setState({
-      errorInfo,
-    });
-    
-    AppState.getInstance().captureError(error, errorInfo.componentStack);
-    
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Caught error:', error, errorInfo);
   }
 
-  render(): ReactNode {
+  render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-      
-      return (
-        <div className="error-boundary">
-          <div className="error-boundary-content">
-            <i className="fas fa-exclamation-triangle"></i>
-            <h1>Something went wrong</h1>
-            <p>We apologize for the inconvenience. Please try refreshing the page.</p>
-            {APP_CONFIG.environment === 'development' && (
-              <details>
-                <summary>Technical details</summary>
-                <pre>{this.state.error?.toString()}</pre>
-                <pre>{this.state.errorInfo?.componentStack}</pre>
-              </details>
-            )}
-            <button onClick={() => window.location.reload()}>
-              <i className="fas fa-sync-alt"></i> Refresh Page
-            </button>
+      return this.props.fallback || (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: '#0a0e1a',
+          color: '#e1e4e8',
+          textAlign: 'center',
+          padding: '20px'
+        }}>
+          <div>
+            <i className="fas fa-exclamation-triangle" style={{ fontSize: '48px', color: '#ff4444', marginBottom: '20px' }}></i>
+            <h2>Something went wrong</h2>
+            <button onClick={() => window.location.reload()} style={{
+              marginTop: '20px',
+              padding: '10px 20px',
+              background: '#00d4ff',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#0a0e1a',
+              cursor: 'pointer'
+            }}>Refresh Page</button>
           </div>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
 
 // ============================================================================
-// PERFORMANCE MONITORING COMPONENT
+// LAZY LOADING WITH PREFETCH
 // ============================================================================
 
-class PerformanceMonitor extends React.Component<{ children: ReactNode }> {
-  private static instanceCount = 0;
-  private instanceId: number;
-  private mountTime: number;
-
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.instanceId = ++PerformanceMonitor.instanceCount;
-    this.mountTime = performance.now();
+// Prefetch the App component on idle time
+const prefetchApp = () => {
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+      import('./App');
+    });
   }
+};
 
-  componentDidMount(): void {
-    const mountDuration = performance.now() - this.mountTime;
-    AppState.getInstance().recordPerformanceMetric(
-      `component-mount-${this.instanceId}`,
-      mountDuration,
-      { component: this.constructor.name }
-    );
-  }
-
-  componentDidUpdate(prevProps: { children: ReactNode }): void {
-    const updateStart = performance.now();
-    const updateDuration = performance.now() - updateStart;
-    if (updateDuration > 16) {
-      AppState.getInstance().recordPerformanceMetric(
-        `slow-update-${this.instanceId}`,
-        updateDuration,
-        { component: this.constructor.name }
-      );
-    }
-  }
-
-  render(): ReactNode {
-    return this.props.children;
-  }
-}
+// Lazy load App with prefetch
+const App = lazy(() => {
+  prefetchApp();
+  return import('./App');
+});
 
 // ============================================================================
-// LAZY LOAD APP COMPONENT
-// ============================================================================
-
-const App = lazy(() => 
-  import('./App').then(module => {
-    const loadTime = performance.now();
-    AppState.getInstance().recordPerformanceMetric('app-chunk-load', loadTime);
-    return module;
-  })
-);
-
-// ============================================================================
-// LOADING FALLBACK COMPONENT
+// ULTRA FAST LOADING FALLBACK
 // ============================================================================
 
 const LoadingFallback: React.FC = () => {
-  const [progress, setProgress] = React.useState(0);
-  const [loadingMessage, setLoadingMessage] = React.useState('Loading application...');
-
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return prev + Math.random() * 10;
-      });
-    }, 200);
-
-    const messages = [
-      'Loading application...',
-      'Connecting to market data...',
-      'Initializing charts...',
-      'Setting up real-time updates...',
-      'Almost ready...',
-    ];
-    
-    let messageIndex = 0;
-    const messageInterval = setInterval(() => {
-      messageIndex = (messageIndex + 1) % messages.length;
-      setLoadingMessage(messages[messageIndex]);
-    }, 800);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(messageInterval);
-    };
+  useEffect(() => {
+    // Simple animation for loading
+    const timer = setTimeout(() => {
+      const progressBar = document.querySelector('.fast-loader-progress') as HTMLElement;
+      if (progressBar) {
+        progressBar.style.width = '100%';
+      }
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="loading-fallback">
-      <div className="loading-container">
-        <div className="loading-icon">
-          <i className="fas fa-chart-line"></i>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'radial-gradient(circle at 20% 80%, #0a0e1a 0%, #05080f 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        {/* Logo Animation */}
+        <div style={{
+          fontSize: '48px',
+          fontWeight: '800',
+          background: 'linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+          marginBottom: '24px',
+          animation: 'pulse 1.5s ease-in-out infinite'
+        }}>
+          <i className="fas fa-chart-line"></i> TRADING PRO
         </div>
-        <div className="loading-progress">
-          <div className="loading-progress-bar" style={{ width: `${progress}%` }}></div>
+        
+        {/* Fast Spinner */}
+        <div style={{
+          width: '40px',
+          height: '40px',
+          margin: '0 auto 20px',
+          border: '3px solid rgba(0, 212, 255, 0.1)',
+          borderTopColor: '#00d4ff',
+          borderRadius: '50%',
+          animation: 'spin 0.6s linear infinite'
+        }}></div>
+        
+        {/* Progress Bar */}
+        <div style={{
+          width: '200px',
+          height: '2px',
+          background: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '2px',
+          margin: '0 auto',
+          overflow: 'hidden'
+        }}>
+          <div className="fast-loader-progress" style={{
+            width: '0%',
+            height: '100%',
+            background: 'linear-gradient(90deg, #00d4ff, #7b2ff7)',
+            transition: 'width 0.3s ease'
+          }}></div>
         </div>
-        <div className="loading-message">{loadingMessage}</div>
-        <div className="loading-dots">
-          <span></span><span></span><span></span>
-        </div>
+        
+        <p style={{ color: '#8b92a8', fontSize: '12px', marginTop: '16px', letterSpacing: '2px' }}>
+          LOADING...
+        </p>
       </div>
+      
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.02); }
+        }
+      `}</style>
     </div>
   );
 };
@@ -442,76 +263,42 @@ const LoadingFallback: React.FC = () => {
 // INITIALIZE APP
 // ============================================================================
 
-// Register service worker for PWA support
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && APP_CONFIG.environment === 'production') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(registrationError => {
-      AppState.getInstance().logEvent(
-        `ServiceWorker registration failed: ${registrationError}`,
-        'error'
-      );
-    });
-  });
-}
+// Report web vitals
+reportWebVitals();
 
-// Keyboard shortcuts for development
-if (typeof window !== 'undefined' && APP_CONFIG.environment === 'development') {
-  window.addEventListener('keydown', (event) => {
-    if (event.ctrlKey && event.shiftKey && event.key === 'D') {
-      console.log('[App State]', {
-        config: APP_CONFIG,
-        errors: AppState.getInstance().getErrors(),
-        metrics: AppState.getInstance().getPerformanceMetrics(),
-        online: AppState.getInstance().isAppOnline(),
-      });
-      event.preventDefault();
-    }
-    
-    if (event.ctrlKey && event.shiftKey && event.key === 'C') {
-      console.clear();
-      event.preventDefault();
-    }
-  });
-}
-
-// Root element validation
-const rootElement = typeof document !== 'undefined' ? document.getElementById('root') : null;
+// Root element
+const rootElement = document.getElementById('root');
 if (!rootElement && typeof document !== 'undefined') {
-  throw new Error('Root element not found. Make sure there is a div with id "root" in your HTML.');
+  throw new Error('Root element not found');
 }
 
-// Create root and render application
+// Create root and render
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);
-
+  
   root.render(
     <StrictMode>
-      <ErrorBoundary
-        onError={(error, errorInfo) => {
-          AppState.getInstance().logEvent(
-            `Uncaught error: ${error.message}`,
-            'error'
-          );
-        }}
-      >
-        <PerformanceMonitor>
-          <Suspense fallback={<LoadingFallback />}>
-            <App />
-          </Suspense>
-        </PerformanceMonitor>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
+          <App />
+        </Suspense>
       </ErrorBoundary>
     </StrictMode>
   );
 }
 
-// Log successful initialization
-AppState.getInstance().logEvent(
-  `Application initialized successfully (v${APP_CONFIG.version})`,
-  'info'
-);
+// Remove loader instantly when React mounts
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const loader = document.getElementById('initial-loader');
+    if (loader) {
+      loader.style.opacity = '0';
+      setTimeout(() => {
+        loader.style.display = 'none';
+      }, 200);
+    }
+  }, 100);
+});
 
-// Export for debugging in development
-if (typeof window !== 'undefined' && APP_CONFIG.environment === 'development') {
-  (window as any).__APP_STATE__ = AppState.getInstance();
-  (window as any).__APP_CONFIG__ = APP_CONFIG;
-}
+// Log performance
+console.log(`⚡ App loaded in ${performance.now().toFixed(0)}ms`);
