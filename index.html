@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="Professional Trading Platform - Real-time stock trading application">
+    <meta name="theme-color" content="#0a0e1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Open Graph tags for social sharing -->
+    <meta property="og:title" content="Trading Platform">
+    <meta property="og:description" content="Professional stock trading interface">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="./assets/images/logo.svg">
+    
+    <title>Trading Platform | Professional Stock Trading Interface</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Favicon - Updated path for production -->
+    <link rel="icon" type="image/svg+xml" href="./assets/images/logo.svg">
+    <link rel="apple-touch-icon" href="./assets/images/logo.svg">
+    
+    <style>
+        /* Critical CSS for initial render */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0e1a;
+            color: #e1e4e8;
+            overflow-x: hidden;
+        }
+        
+        #root {
+            min-height: 100vh;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        #root.loaded {
+            opacity: 1;
+        }
+        
+        /* Loading spinner */
+        .initial-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0a0e1a 0%, #0f1420 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        .initial-loader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .loader-content {
+            text-align: center;
+        }
+        
+        .loader-logo {
+            font-size: 64px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 212, 255, 0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        .loader-text {
+            color: #6b7280;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="initial-loader" class="initial-loader">
+        <div class="loader-content">
+            <div class="loader-logo">
+                <i class="fas fa-chart-line"></i> TRADING<span style="color: #00d4ff;">PRO</span>
+            </div>
+            <div class="loader-spinner"></div>
+            <div class="loader-text">INITIALIZING PLATFORM...</div>
+        </div>
+    </div>
+    
+    <div id="root"></div>
+    
+    <div id="toast-container" class="toast-container"></div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+        // Remove loader when React mounts
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loader = document.getElementById('initial-loader');
+                if (loader) {
+                    loader.classList.add('fade-out');
+                    setTimeout(function() {
+                        loader.style.display = 'none';
+                    }, 500);
+                }
+                const root = document.getElementById('root');
+                if (root) {
+                    root.classList.add('loaded');
+                }
+            }, 500);
+        });
+        
+        // Handle online/offline status
+        window.addEventListener('online', function() {
+            window.dispatchEvent(new CustomEvent('app-online'));
+        });
+        
+        window.addEventListener('offline', function() {
+            window.dispatchEvent(new CustomEvent('app-offline'));
+        });
+        
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+        });
+    </script>
+</body>
+</html>

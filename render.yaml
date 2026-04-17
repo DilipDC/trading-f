@@ -1,0 +1,101 @@
+# Render Deployment Configuration for Trading Platform
+# This file tells Render how to build and serve your React application
+
+services:
+  # Main web service for the trading platform
+  - type: web
+    name: trading-platform
+    runtime: static
+    buildCommand: npm ci --production=false && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    branch: main
+    
+    # Environment variables for the build process
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: NPM_VERSION
+        value: 9.8.1
+      - key: VITE_APP_ENV
+        value: production
+      - key: VITE_API_URL
+        value: https://trading-platform-api.onrender.com/api/v1
+      - key: VITE_WS_URL
+        value: wss://trading-platform-api.onrender.com/ws
+    
+    # Headers for security and performance
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-XSS-Protection
+        value: 1; mode=block
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    
+    # Route configuration for SPA (Single Page Application)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    
+    # Health check endpoint
+    healthCheckPath: /
+    
+    # Build filters - what files to include
+    buildFilter:
+      paths:
+        - src/**
+        - assets/**
+        - public/**
+        - index.html
+        - package.json
+        - package-lock.json
+        - vite.config.ts
+        - tsconfig.json
+        - tsconfig.node.json
+      ignorePaths:
+        - node_modules/**
+        - .git/**
+        - README.md
+        - .env.local
+        - .env.*.local
+
+  # Optional: Background worker for scheduled tasks (if needed)
+  # - type: worker
+  #   name: trading-worker
+  #   runtime: node
+  #   buildCommand: npm install
+  #   startCommand: npm run worker
+  #   envVars:
+  #     - key: NODE_VERSION
+  #       value: 18.17.0
+
+# Global settings for all services
+# These apply to all services defined above
+previews:
+  generation: automatic
+  pullRequestPreviewsEnabled: true
+  expiry: 7d
+
+# Auto-deploy settings
+automaticDeploys: true
+
+# Notification settings
+notifications:
+  - type: email
+    onSuccess: false
+    onFailure: true
+    onStart: false
