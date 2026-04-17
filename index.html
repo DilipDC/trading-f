@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="description" content="Professional Trading Platform - Ultra fast stock trading">
+    <meta name="description" content="Professional Trading Platform - Fast, responsive stock trading">
     <meta name="theme-color" content="#0a0e1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,8 +17,8 @@
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preload" as="script" href="/src/main.tsx">
     
-    <!-- Fonts (optimized with display swap) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <link rel="icon" type="image/svg+xml" href="/assets/images/logo.svg">
@@ -33,12 +33,12 @@
         .initial-loader{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 20% 80%,#0a0e1a,#05080f);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
         .initial-loader.fade-out{opacity:0;visibility:hidden}
         .loader-content{text-align:center}
-        .loader-logo{font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:24px;animation:pulse 1.5s ease-in-out infinite}
-        .loader-spinner{width:48px;height:48px;margin:0 auto 20px;border:3px solid rgba(0,212,255,0.1);border-top-color:#00d4ff;border-radius:50%;animation:spin .6s linear infinite}
+        .loader-logo{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:20px;animation:pulse 1.5s ease-in-out infinite}
+        .loader-spinner{width:40px;height:40px;margin:0 auto 16px;border:3px solid rgba(0,212,255,0.1);border-top-color:#00d4ff;border-radius:50%;animation:spin .6s linear infinite}
         .loader-text{color:#8b92a8;font-size:12px;letter-spacing:2px}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
-        @media (max-width:768px){.loader-logo{font-size:1.8rem}.loader-spinner{width:36px;height:36px}}
+        @media (max-width:768px){.loader-logo{font-size:1.5rem}.loader-spinner{width:32px;height:32px}}
     </style>
 </head>
 <body>
@@ -58,14 +58,13 @@
             const removeLoader = () => {
                 if(!loader) return;
                 loader.classList.add('fade-out');
-                setTimeout(()=>{
-                    loader.style.display='none';
+                setTimeout(() => {
+                    loader.style.display = 'none';
                     document.getElementById('root')?.classList.add('loaded');
-                },300);
+                }, 300);
             };
-            window.addEventListener('load', ()=>setTimeout(removeLoader, 300));
-            // Quick load detection
-            if(document.readyState === 'complete') setTimeout(removeLoader, 100);
+            window.addEventListener('load', () => setTimeout(removeLoader, 200));
+            if(document.readyState === 'complete') setTimeout(removeLoader, 50);
         })();
     </script>
 </body>
