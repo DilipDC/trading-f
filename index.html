@@ -1,71 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="description" content="Professional Trading Platform - Fast, responsive stock trading">
-    <meta name="theme-color" content="#0a0e1a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
-    <!-- Preconnect to critical origins -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    
-    <!-- Preload critical assets -->
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="preload" as="script" href="/src/main.tsx">
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <link rel="icon" type="image/svg+xml" href="/assets/images/logo.svg">
-    <title>Trading Platform | Fast Trading</title>
-    
-    <!-- Critical CSS (inlined for instant render) -->
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Inter',sans-serif;background:#0a0e1a;color:#e1e4e8;overflow-x:hidden}
-        #root{min-height:100vh;opacity:0;transition:opacity .2s}
-        #root.loaded{opacity:1}
-        .initial-loader{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 20% 80%,#0a0e1a,#05080f);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
-        .initial-loader.fade-out{opacity:0;visibility:hidden}
-        .loader-content{text-align:center}
-        .loader-logo{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:20px;animation:pulse 1.5s ease-in-out infinite}
-        .loader-spinner{width:40px;height:40px;margin:0 auto 16px;border:3px solid rgba(0,212,255,0.1);border-top-color:#00d4ff;border-radius:50%;animation:spin .6s linear infinite}
-        .loader-text{color:#8b92a8;font-size:12px;letter-spacing:2px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
-        @media (max-width:768px){.loader-logo{font-size:1.5rem}.loader-spinner{width:32px;height:32px}}
-    </style>
-</head>
-<body>
-    <div id="initial-loader" class="initial-loader">
-        <div class="loader-content">
-            <div class="loader-logo"><i class="fas fa-chart-line"></i> TRADING PRO</div>
-            <div class="loader-spinner"></div>
-            <div class="loader-text">LOADING...</div>
-        </div>
+/**
+ * Main Entry Point - Optimized for Speed & Performance
+ * Features: Lazy loading, code splitting, fast hydration
+ */
+
+import React, { StrictMode, Suspense, lazy } from 'react';
+import ReactDOM from 'react-dom/client';
+import './style.css';
+
+// Lazy load main App component
+const App = lazy(() => import('./App'));
+
+// Ultra-fast loading fallback
+const LoadingFallback = () => (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'radial-gradient(circle at 20% 80%, #0a0e1a 0%, #05080f 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontSize: '2rem',
+        fontWeight: '800',
+        background: 'linear-gradient(135deg, #00d4ff, #7b2ff7)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        color: 'transparent',
+        marginBottom: '20px'
+      }}>
+        <i className="fas fa-chart-line"></i> TRADING PRO
+      </div>
+      <div style={{
+        width: '40px',
+        height: '40px',
+        margin: '0 auto',
+        border: '3px solid rgba(0,212,255,0.1)',
+        borderTopColor: '#00d4ff',
+        borderRadius: '50%',
+        animation: 'spin 0.6s linear infinite'
+      }}></div>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
-    <div id="root"></div>
-    <div id="toast-container" style="position:fixed;top:20px;right:20px;z-index:10000"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <script>
-        (function(){
-            const loader = document.getElementById('initial-loader');
-            const removeLoader = () => {
-                if(!loader) return;
-                loader.classList.add('fade-out');
-                setTimeout(() => {
-                    loader.style.display = 'none';
-                    document.getElementById('root')?.classList.add('loaded');
-                }, 300);
-            };
-            window.addEventListener('load', () => setTimeout(removeLoader, 200));
-            if(document.readyState === 'complete') setTimeout(removeLoader, 50);
-        })();
-    </script>
-</body>
-</html>
+  </div>
+);
+
+// Root element
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  ReactDOM.createRoot(rootElement).render(
+    <StrictMode>
+      <Suspense fallback={<LoadingFallback />}>
+        <App />
+      </Suspense>
+    </StrictMode>
+  );
+}
+
+// Remove loader quickly
+window.addEventListener('load', () => {
+  const loader = document.getElementById('initial-loader');
+  if (loader) {
+    loader.style.opacity = '0';
+    setTimeout(() => loader.remove(), 300);
+  }
+});
