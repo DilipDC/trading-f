@@ -1,15 +1,16 @@
 /**
- * Advanced Chart Component - Professional Trading Charts
- * Features: Candlestick, Line, Area charts with zoom, pan, and multiple timeframes
+ * Chart Component - Professional Trading Chart Component
+ * Features: Candlestick, Line charts with zoom, pan, tooltips, and responsive design
+ * This is the main chart component used by the application
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { StockHistory, StockDataPoint } from '../api';
 import { formatCurrency, formatDate } from '../utils';
 
-interface AdvancedChartProps {
+interface ChartComponentProps {
   data: StockHistory | null;
-  type: 'candlestick' | 'line' | 'area';
+  type: 'candlestick' | 'line';
   symbol: string;
 }
 
@@ -24,10 +25,10 @@ interface ChartPoint {
   timestamp: number;
 }
 
-const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => {
+const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 450 });
   const [hoverData, setHoverData] = useState<StockDataPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -50,7 +51,7 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Draw chart
+  // Draw chart function
   const drawChart = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -105,7 +106,7 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
       ctx.fillText(`₹${price.toFixed(2)}`, 5, y - 3);
     }
 
-    // Vertical grid lines (time)
+    // Vertical grid lines (time intervals)
     const step = Math.max(1, Math.floor(visiblePoints.length / 8));
     for (let i = 0; i < visiblePoints.length; i += step) {
       const x = (i / (visiblePoints.length - 1)) * width;
@@ -118,7 +119,8 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
       const date = new Date(visiblePoints[i].timestamp);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.font = '10px Inter, sans-serif';
-      ctx.fillText(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), x - 25, height - 5);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      ctx.fillText(timeStr, x - 20, height - 8);
     }
 
     // Draw volume bars
@@ -133,26 +135,11 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
     });
 
     // Draw chart based on type
-    if (type === 'line' || type === 'area') {
-      // Draw area fill
-      if (type === 'area') {
-        ctx.beginPath();
-        visiblePoints.forEach((point, i) => {
-          const x = (i / (visiblePoints.length - 1)) * width;
-          const y = height - ((point.close - minPrice) / priceRange) * height;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.lineTo(width, height);
-        ctx.lineTo(0, height);
-        ctx.fillStyle = 'rgba(0, 212, 255, 0.15)';
-        ctx.fill();
-      }
-      
+    if (type === 'line') {
       // Draw line
       ctx.beginPath();
       ctx.strokeStyle = '#00d4ff';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       
       visiblePoints.forEach((point, i) => {
         const x = (i / (visiblePoints.length - 1)) * width;
@@ -162,19 +149,31 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
       });
       ctx.stroke();
       
-      // Draw points
-      visiblePoints.forEach((point, i) => {
-        const x = (i / (visiblePoints.length - 1)) * width;
-        const y = height - ((point.close - minPrice) / priceRange) * height;
-        ctx.fillStyle = '#00d4ff';
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
+      // Draw gradient under line
+      ctx.lineTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.fillStyle = 'rgba(0, 212, 255, 0.08)';
+      ctx.fill();
+      
+      // Draw points on hover
+      if (hoverData) {
+        const hoverIndex = visiblePoints.findIndex(p => p.timestamp === hoverData.timestamp);
+        if (hoverIndex !== -1) {
+          const x = (hoverIndex / (visiblePoints.length - 1)) * width;
+          const y = height - ((hoverData.close - minPrice) / priceRange) * height;
+          ctx.fillStyle = '#00d4ff';
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.fillStyle = 'white';
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
     } 
     else if (type === 'candlestick') {
-      const candleWidth = Math.max(2, width / visiblePoints.length * 0.7);
+      const candleWidth = Math.max(3, width / visiblePoints.length * 0.7);
       
       visiblePoints.forEach((point, i) => {
         const x = (i / (visiblePoints.length - 1)) * width;
@@ -192,25 +191,36 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
         ctx.moveTo(x, highY);
         ctx.lineTo(x, lowY);
         ctx.strokeStyle = isGreen ? '#00e676' : '#ff4444';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
         
         // Draw body
         ctx.fillStyle = isGreen ? '#00e676' : '#ff4444';
         ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, Math.max(1, bodyHeight));
         
-        // Add glow effect for selected candle on hover
+        // Add border to body
+        ctx.strokeStyle = isGreen ? '#00a853' : '#cc3333';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, Math.max(1, bodyHeight));
+        
+        // Highlight hovered candle
         if (hoverData && hoverData.timestamp === point.timestamp) {
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 15;
           ctx.shadowColor = isGreen ? '#00e676' : '#ff4444';
           ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, Math.max(1, bodyHeight));
           ctx.shadowBlur = 0;
+          
+          // Draw glow effect
+          ctx.beginPath();
+          ctx.ellipse(x, highY - 5, 10, 5, 0, 0, 2 * Math.PI);
+          ctx.fillStyle = isGreen ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 68, 68, 0.2)';
+          ctx.fill();
         }
       });
     }
 
-    // Draw hover crosshair
-    if (hoverData && mousePosition.x > 0 && mousePosition.x < width) {
+    // Draw crosshair on hover
+    if (hoverData && mousePosition.x > 0 && mousePosition.x < width && mousePosition.y > 0 && mousePosition.y < height) {
       ctx.beginPath();
       ctx.moveTo(mousePosition.x, 0);
       ctx.lineTo(mousePosition.x, height);
@@ -226,33 +236,62 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
 
     // Draw tooltip
     if (hoverData && mousePosition.x > 0 && mousePosition.x < width) {
-      const tooltipX = Math.min(mousePosition.x + 10, width - 180);
-      const tooltipY = Math.max(mousePosition.y - 80, 10);
+      const tooltipX = Math.min(mousePosition.x + 15, width - 200);
+      const tooltipY = Math.max(mousePosition.y - 100, 10);
       
-      ctx.fillStyle = 'rgba(10, 14, 26, 0.95)';
+      // Tooltip background
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.98)';
       ctx.shadowBlur = 10;
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(tooltipX, tooltipY, 170, 95);
+      ctx.fillRect(tooltipX, tooltipY, 190, 110);
       ctx.shadowBlur = 0;
       ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
-      ctx.strokeRect(tooltipX, tooltipY, 170, 95);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tooltipX, tooltipY, 190, 110);
       
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px Inter, sans-serif';
-      ctx.fillText(symbol, tooltipX + 10, tooltipY + 20);
+      // Symbol
+      ctx.fillStyle = '#00d4ff';
+      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.fillText(symbol, tooltipX + 12, tooltipY + 22);
       
+      // Date
       ctx.fillStyle = '#8b92a8';
       ctx.font = '10px Inter, sans-serif';
-      ctx.fillText(formatDate(hoverData.timestamp), tooltipX + 10, tooltipY + 35);
+      ctx.fillText(formatDate(hoverData.timestamp), tooltipX + 12, tooltipY + 38);
       
-      ctx.fillStyle = hoverData.close >= hoverData.open ? '#00e676' : '#ff4444';
-      ctx.fillText(`₹${hoverData.close.toFixed(2)}`, tooltipX + 10, tooltipY + 52);
+      // Price
+      const isGreen = hoverData.close >= hoverData.open;
+      ctx.fillStyle = isGreen ? '#00e676' : '#ff4444';
+      ctx.font = 'bold 16px Inter, sans-serif';
+      ctx.fillText(`₹${hoverData.close.toFixed(2)}`, tooltipX + 12, tooltipY + 58);
       
+      // High/Low
       ctx.fillStyle = '#8b92a8';
-      ctx.fillText(`H: ₹${hoverData.high.toFixed(2)}`, tooltipX + 10, tooltipY + 67);
-      ctx.fillText(`L: ₹${hoverData.low.toFixed(2)}`, tooltipX + 90, tooltipY + 67);
-      ctx.fillText(`O: ₹${hoverData.open.toFixed(2)}`, tooltipX + 10, tooltipY + 82);
-      ctx.fillText(`Vol: ${(hoverData.volume / 1000).toFixed(0)}K`, tooltipX + 90, tooltipY + 82);
+      ctx.font = '11px Inter, sans-serif';
+      ctx.fillText(`H: ₹${hoverData.high.toFixed(2)}`, tooltipX + 12, tooltipY + 75);
+      ctx.fillText(`L: ₹${hoverData.low.toFixed(2)}`, tooltipX + 100, tooltipY + 75);
+      
+      // Open & Volume
+      ctx.fillText(`O: ₹${hoverData.open.toFixed(2)}`, tooltipX + 12, tooltipY + 92);
+      ctx.fillText(`Vol: ${(hoverData.volume / 1000).toFixed(0)}K`, tooltipX + 100, tooltipY + 92);
+    }
+
+    // Draw current price line
+    if (visiblePoints.length > 0) {
+      const lastPrice = visiblePoints[visiblePoints.length - 1].close;
+      const y = height - ((lastPrice - minPrice) / priceRange) * height;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Current price label
+      ctx.fillStyle = '#00d4ff';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.fillText(`₹${lastPrice.toFixed(2)}`, width - 60, y - 3);
     }
   }, [data, type, dimensions, hoverData, mousePosition, symbol, zoomLevel, offset]);
 
@@ -266,8 +305,10 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
     const y = e.clientY - rect.top;
     const scaleX = canvas.width / rect.width;
     const canvasX = x * scaleX;
+    const scaleY = canvas.height / rect.height;
+    const canvasY = y * scaleY;
     
-    setMousePosition({ x: canvasX, y });
+    setMousePosition({ x: canvasX, y: canvasY });
     
     const points = data.data;
     const visiblePoints = points.slice(
@@ -288,24 +329,26 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
     setMousePosition({ x: 0, y: 0 });
   }, []);
 
-  // Wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
+  // Handle wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     setZoomLevel(prev => Math.max(0.2, Math.min(3, prev * delta)));
   }, []);
 
-  // Drag to pan
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Handle drag to pan
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+    canvasRef.current?.style.cursor = 'grabbing';
   }, []);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    canvasRef.current?.style.cursor = 'crosshair';
   }, []);
 
-  const handleMouseDrag = useCallback((e: React.MouseEvent) => {
+  const handleMouseDrag = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDragging) return;
     const dx = e.clientX - dragStart.x;
     const panAmount = dx / dimensions.width;
@@ -317,6 +360,16 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
   const resetView = useCallback(() => {
     setZoomLevel(1);
     setOffset(0);
+  }, []);
+
+  // Zoom in
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(3, prev + 0.1));
+  }, []);
+
+  // Zoom out
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(0.2, prev - 0.1));
   }, []);
 
   // Animation loop for smooth rendering
@@ -331,33 +384,54 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
     };
   }, [drawChart]);
 
+  // Loading state
   if (!data || !data.data || data.data.length === 0) {
     return (
-      <div className="chart-empty-state">
-        <i className="fas fa-chart-line"></i>
-        <h4>No chart data available</h4>
-        <p>Select a stock to view its price chart</p>
+      <div className="chart-loading-state">
+        <div className="loading-spinner-chart">
+          <i className="fas fa-chart-line fa-spin"></i>
+        </div>
+        <p>Loading chart data for {symbol}...</p>
+        <style>{`
+          .chart-loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 450px;
+            background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
+            border-radius: 16px;
+            color: #8b92a8;
+          }
+          .loading-spinner-chart i {
+            font-size: 48px;
+            color: #00d4ff;
+            margin-bottom: 16px;
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="advanced-chart-container" ref={containerRef}>
+    <div className="chart-component-wrapper" ref={containerRef}>
       <div className="chart-toolbar">
         <div className="chart-info">
-          <span className="chart-symbol">{symbol}</span>
-          <span className="chart-timeframe">
-            {data.timeframe === '1m' ? '1 Minute' : data.timeframe === '5m' ? '5 Minutes' : '1 Day'}
-          </span>
+          <div className="chart-symbol-info">
+            <span className="chart-symbol">{symbol}</span>
+            <span className="chart-timeframe-badge">
+              {data.timeframe === '1m' ? '1 Minute' : data.timeframe === '5m' ? '5 Minutes' : '1 Day'}
+            </span>
+          </div>
         </div>
-        <div className="chart-controls-toolbar">
-          <button className="chart-control-btn" onClick={resetView} title="Reset View">
+        <div className="chart-control-buttons">
+          <button className="chart-btn" onClick={resetView} title="Reset View">
             <i className="fas fa-expand"></i>
           </button>
-          <button className="chart-control-btn" onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.1))} title="Zoom In">
+          <button className="chart-btn" onClick={zoomIn} title="Zoom In">
             <i className="fas fa-search-plus"></i>
           </button>
-          <button className="chart-control-btn" onClick={() => setZoomLevel(prev => Math.max(0.2, prev - 0.1))} title="Zoom Out">
+          <button className="chart-btn" onClick={zoomOut} title="Zoom Out">
             <i className="fas fa-search-minus"></i>
           </button>
         </div>
@@ -375,31 +449,33 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
         style={{ width: '100%', height: '450px', cursor: 'crosshair' }}
       />
       
-      <div className="chart-legend">
-        <div className="legend-item">
-          <span className="legend-color" style={{ backgroundColor: '#00d4ff' }}></span>
-          <span>Price</span>
+      <div className="chart-footer">
+        <div className="chart-legend">
+          <div className="legend-item">
+            <span className="legend-color bullish"></span>
+            <span>Bullish</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color bearish"></span>
+            <span>Bearish</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color volume"></span>
+            <span>Volume</span>
+          </div>
         </div>
-        <div className="legend-item">
-          <span className="legend-color" style={{ backgroundColor: '#00e676' }}></span>
-          <span>Bullish</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color" style={{ backgroundColor: '#ff4444' }}></span>
-          <span>Bearish</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color" style={{ backgroundColor: 'rgba(0, 212, 255, 0.3)' }}></span>
-          <span>Volume</span>
+        <div className="chart-hint">
+          <i className="fas fa-mouse-pointer"></i>
+          <span>Hover for details • Scroll to zoom • Drag to pan</span>
         </div>
       </div>
       
       <style>{`
-        .advanced-chart-container {
+        .chart-component-wrapper {
           background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
-          border-radius: 16px;
+          border-radius: 20px;
           padding: 16px;
-          position: relative;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         
         .chart-toolbar {
@@ -408,55 +484,71 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
           align-items: center;
           margin-bottom: 16px;
           padding-bottom: 12px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         
         .chart-info {
           display: flex;
-          gap: 16px;
+          align-items: center;
+        }
+        
+        .chart-symbol-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
         
         .chart-symbol {
           font-weight: 700;
-          font-size: 18px;
-          color: #00d4ff;
+          font-size: 20px;
+          background: linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
         }
         
-        .chart-timeframe {
-          font-size: 12px;
+        .chart-timeframe-badge {
+          font-size: 11px;
+          padding: 4px 10px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
           color: #8b92a8;
-          padding: 4px 8px;
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 6px;
         }
         
-        .chart-controls-toolbar {
+        .chart-control-buttons {
           display: flex;
           gap: 8px;
         }
         
-        .chart-control-btn {
+        .chart-btn {
           background: rgba(255, 255, 255, 0.05);
           border: none;
           color: #8b92a8;
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.2s ease;
         }
         
-        .chart-control-btn:hover {
+        .chart-btn:hover {
           background: rgba(0, 212, 255, 0.2);
           color: #00d4ff;
+          transform: translateY(-1px);
+        }
+        
+        .chart-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 16px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
         
         .chart-legend {
           display: flex;
           gap: 20px;
-          margin-top: 16px;
-          padding-top: 12px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         .legend-item {
@@ -473,40 +565,51 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
           border-radius: 3px;
         }
         
-        .chart-empty-state {
+        .legend-color.bullish {
+          background: #00e676;
+        }
+        
+        .legend-color.bearish {
+          background: #ff4444;
+        }
+        
+        .legend-color.volume {
+          background: rgba(0, 212, 255, 0.3);
+        }
+        
+        .chart-hint {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          justify-content: center;
-          height: 450px;
-          background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
-          border-radius: 16px;
-          color: #8b92a8;
-          text-align: center;
+          gap: 8px;
+          font-size: 11px;
+          color: #5a6278;
         }
         
-        .chart-empty-state i {
-          font-size: 48px;
-          margin-bottom: 16px;
-          color: #3a4052;
-        }
-        
-        .chart-empty-state h4 {
-          margin-bottom: 8px;
-          color: #e1e4e8;
+        .chart-hint i {
+          font-size: 12px;
         }
         
         @media (max-width: 768px) {
-          .advanced-chart-container {
+          .chart-component-wrapper {
             padding: 12px;
           }
           
           .chart-symbol {
-            font-size: 14px;
+            font-size: 16px;
           }
           
           .legend-item {
             font-size: 10px;
+          }
+          
+          .chart-hint {
+            font-size: 9px;
+          }
+          
+          .chart-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
           }
         }
       `}</style>
@@ -514,4 +617,4 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({ data, type, symbol }) => 
   );
 };
 
-export default React.memo(AdvancedChart);
+export default React.memo(ChartComponent);
