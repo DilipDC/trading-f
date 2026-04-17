@@ -1,7 +1,6 @@
 /**
- * Chart Component - Professional Trading Chart Component
- * Features: Candlestick, Line charts with zoom, pan, tooltips, and responsive design
- * This is the main chart component used by the application
+ * Chart Component - Professional Trading Chart
+ * Fixed: Removed direct DOM manipulation that caused build errors
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -12,17 +11,6 @@ interface ChartComponentProps {
   data: StockHistory | null;
   type: 'candlestick' | 'line';
   symbol: string;
-}
-
-interface ChartPoint {
-  x: number;
-  y: number;
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  volume?: number;
-  timestamp: number;
 }
 
 const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) => {
@@ -209,12 +197,6 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
           ctx.shadowColor = isGreen ? '#00e676' : '#ff4444';
           ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, Math.max(1, bodyHeight));
           ctx.shadowBlur = 0;
-          
-          // Draw glow effect
-          ctx.beginPath();
-          ctx.ellipse(x, highY - 5, 10, 5, 0, 0, 2 * Math.PI);
-          ctx.fillStyle = isGreen ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 68, 68, 0.2)';
-          ctx.fill();
         }
       });
     }
@@ -340,12 +322,16 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
-    canvasRef.current?.style.cursor = 'grabbing';
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = 'grabbing';
+    }
   }, []);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-    canvasRef.current?.style.cursor = 'crosshair';
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = 'crosshair';
+    }
   }, []);
 
   const handleMouseDrag = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -487,17 +473,6 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         
-        .chart-info {
-          display: flex;
-          align-items: center;
-        }
-        
-        .chart-symbol-info {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
         .chart-symbol {
           font-weight: 700;
           font-size: 20px;
@@ -513,6 +488,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
           background: rgba(255, 255, 255, 0.08);
           border-radius: 20px;
           color: #8b92a8;
+          margin-left: 12px;
         }
         
         .chart-control-buttons {
@@ -534,7 +510,6 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
         .chart-btn:hover {
           background: rgba(0, 212, 255, 0.2);
           color: #00d4ff;
-          transform: translateY(-1px);
         }
         
         .chart-footer {
@@ -585,10 +560,6 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
           color: #5a6278;
         }
         
-        .chart-hint i {
-          font-size: 12px;
-        }
-        
         @media (max-width: 768px) {
           .chart-component-wrapper {
             padding: 12px;
@@ -600,16 +571,6 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
           
           .legend-item {
             font-size: 10px;
-          }
-          
-          .chart-hint {
-            font-size: 9px;
-          }
-          
-          .chart-btn {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
           }
         }
       `}</style>
