@@ -1,13 +1,9 @@
 /**
- * API Layer - Optimized for Super Fast Performance
- * Features: Request caching, deduplication, connection pooling, fast mock data
- * Version: 4.0.0 - Ultra Fast
+ * API Layer - Optimized for Speed
+ * Features: Mock data with realistic updates, request caching, fast responses
  */
 
-// ============================================================================
-// TYPES & INTERFACES
-// ============================================================================
-
+// ========== TYPES ==========
 export interface Stock {
   symbol: string;
   name: string;
@@ -31,12 +27,7 @@ export interface StockHistory {
   symbol: string;
   timeframe: '1m' | '5m' | '1D';
   data: StockDataPoint[];
-  metadata: {
-    startTime: number;
-    endTime: number;
-    interval: string;
-    source: string;
-  };
+  metadata: { startTime: number; endTime: number; interval: string; source: string };
 }
 
 export interface StockDataPoint {
@@ -59,73 +50,23 @@ export interface MarketStatus {
   timezone: string;
 }
 
-export interface DepositRequest {
-  amount: number;
-  paymentMethod?: 'UPI' | 'CARD' | 'NETBANKING';
-}
-
-export interface WithdrawalRequest {
-  upiId: string;
-  name: string;
-  amount: number;
-}
-
+export interface DepositRequest { amount: number; paymentMethod?: string; }
+export interface WithdrawalRequest { upiId: string; name: string; amount: number; }
 export interface TransactionResponse {
   success: boolean;
   transactionId?: string;
   message?: string;
   timestamp: number;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'PROCESSING';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
   amount: number;
-  reference?: string;
 }
-
-export interface OrderRequest {
-  symbol: string;
-  type: 'BUY' | 'SELL';
-  orderType: 'MARKET' | 'LIMIT';
-  quantity: number;
-  price: number;
-}
-
+export interface OrderRequest { symbol: string; type: 'BUY'|'SELL'; orderType: 'MARKET'|'LIMIT'; quantity: number; price: number; }
 export interface OrderResponse {
-  id: string;
-  symbol: string;
-  type: 'BUY' | 'SELL';
-  orderType: 'MARKET' | 'LIMIT';
-  quantity: number;
-  price: number;
-  total: number;
-  status: 'EXECUTED' | 'REJECTED' | 'PENDING';
-  timestamp: number;
-  executedQuantity?: number;
-  executedPrice?: number;
+  id: string; symbol: string; type: 'BUY'|'SELL'; orderType: 'MARKET'|'LIMIT';
+  quantity: number; price: number; total: number; status: 'EXECUTED'; timestamp: number;
 }
 
-// ============================================================================
-// PERFORMANCE CONFIGURATION
-// ============================================================================
-
-// Use production API only in production, otherwise use fast mock
-const IS_PRODUCTION = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-const API_BASE_URL = IS_PRODUCTION ? 'https://api.tradingplatform.com/v1' : '';
-
-// Request cache with TTL
-interface CacheEntry<T> {
-  data: T;
-  expiry: number;
-}
-
-const requestCache = new Map<string, CacheEntry<any>>();
-const pendingRequests = new Map<string, Promise<any>>();
-const CACHE_TTL = 5000; // 5 seconds for stock data (fast updates)
-const LONG_CACHE_TTL = 60000; // 60 seconds for market status
-
-// ============================================================================
-// FAST MOCK DATA (Pre-generated for speed)
-// ============================================================================
-
-// Pre-calculate static mock stocks once
+// ========== FAST MOCK DATA ==========
 const MOCK_STOCKS: Stock[] = [
   { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2856.75, change: 23.45, changePercent: 0.83, volume: 5234567, high: 2875.00, low: 2840.50, open: 2845.00, previousClose: 2833.30, marketCap: 19350000000000, peRatio: 24.5, dividendYield: 0.35, week52High: 3020.00, week52Low: 2180.00, lastUpdated: Date.now() },
   { symbol: 'TCS', name: 'Tata Consultancy', price: 3987.50, change: -12.30, changePercent: -0.31, volume: 1234567, high: 4010.00, low: 3975.00, open: 4000.00, previousClose: 3999.80, marketCap: 14700000000000, peRatio: 28.3, dividendYield: 1.20, week52High: 4250.00, week52Low: 3250.00, lastUpdated: Date.now() },
@@ -141,142 +82,96 @@ const MOCK_STOCKS: Stock[] = [
   { symbol: 'TITAN', name: 'Titan Company', price: 3456.70, change: -23.40, changePercent: -0.67, volume: 876543, high: 3480.00, low: 3445.00, open: 3475.00, previousClose: 3480.10, marketCap: 3070000000000, peRatio: 85.6, dividendYield: 0.35, week52High: 3700.00, week52Low: 2600.00, lastUpdated: Date.now() },
 ];
 
-// Cache for updated prices (to simulate real-time)
-let lastPriceUpdate = 0;
-let cachedUpdatedStocks: Stock[] = [...MOCK_STOCKS];
+let cachedStocks = [...MOCK_STOCKS];
+let lastUpdate = 0;
 
-// Fast price update with minimal overhead
+// Update prices every 2 seconds
 function updatePrices(): Stock[] {
   const now = Date.now();
-  // Update every 2 seconds only
-  if (now - lastPriceUpdate < 2000) {
-    return cachedUpdatedStocks;
-  }
-  lastPriceUpdate = now;
-  
-  // Quick in-place update
-  for (let i = 0; i < cachedUpdatedStocks.length; i++) {
-    const stock = cachedUpdatedStocks[i];
+  if (now - lastUpdate < 2000) return cachedStocks;
+  lastUpdate = now;
+  cachedStocks = cachedStocks.map(stock => {
     const change = (Math.random() - 0.5) * 4;
-    const newPrice = stock.price + change;
+    const newPrice = Math.max(0.01, stock.price + change);
     const changePercent = (change / stock.previousClose) * 100;
-    stock.price = Number(newPrice.toFixed(2));
-    stock.change = Number(change.toFixed(2));
-    stock.changePercent = Number(changePercent.toFixed(2));
-    stock.lastUpdated = now;
-  }
-  return cachedUpdatedStocks;
+    return {
+      ...stock,
+      price: Number(newPrice.toFixed(2)),
+      change: Number(change.toFixed(2)),
+      changePercent: Number(changePercent.toFixed(2)),
+      high: Math.max(stock.high, newPrice),
+      low: Math.min(stock.low, newPrice),
+      lastUpdated: now,
+    };
+  });
+  return cachedStocks;
 }
 
-// Pre-generated historical data templates
+// Historical data cache
 const historyCache = new Map<string, StockHistory>();
 
-function getHistoricalData(symbol: string, timeframe: '1m' | '5m' | '1D'): StockHistory {
+function generateHistory(symbol: string, timeframe: '1m'|'5m'|'1D'): StockHistory {
   const cacheKey = `${symbol}_${timeframe}`;
-  const cached = historyCache.get(cacheKey);
-  if (cached) return cached;
+  if (historyCache.has(cacheKey)) return historyCache.get(cacheKey)!;
   
   const now = Date.now();
-  let points: number;
-  let interval: number;
-  
+  let points: number, interval: number;
   switch (timeframe) {
     case '1m': points = 60; interval = 60 * 1000; break;
     case '5m': points = 72; interval = 5 * 60 * 1000; break;
     default: points = 390; interval = 60 * 1000; break;
   }
-  
-  const baseStock = MOCK_STOCKS.find(s => s.symbol === symbol) || MOCK_STOCKS[0];
-  let currentPrice = baseStock.price;
+  const stock = MOCK_STOCKS.find(s => s.symbol === symbol) || MOCK_STOCKS[0];
+  let price = stock.price;
   const data: StockDataPoint[] = [];
-  
   for (let i = points; i >= 0; i--) {
-    const timestamp = now - (i * interval);
+    const ts = now - i * interval;
     const change = (Math.random() - 0.5) * 0.02;
-    const open = currentPrice;
+    const open = price;
     const close = open * (1 + change);
     const high = Math.max(open, close) * (1 + Math.random() * 0.01);
     const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-    const volume = Math.floor(Math.random() * 1000000) + 100000;
-    
     data.push({
-      timestamp,
+      timestamp: ts,
       open: Number(open.toFixed(2)),
       high: Number(high.toFixed(2)),
       low: Number(low.toFixed(2)),
       close: Number(close.toFixed(2)),
-      volume,
-      timeStr: new Date(timestamp).toLocaleTimeString(),
+      volume: Math.floor(Math.random() * 1000000) + 100000,
+      timeStr: new Date(ts).toLocaleTimeString(),
     });
-    currentPrice = close;
+    price = close;
   }
-  
   const history: StockHistory = {
-    symbol,
-    timeframe,
-    data,
-    metadata: {
-      startTime: data[0].timestamp,
-      endTime: data[data.length - 1].timestamp,
-      interval: `${interval / 1000}s`,
-      source: 'MOCK_DATA',
-    },
+    symbol, timeframe, data,
+    metadata: { startTime: data[0].timestamp, endTime: data[data.length-1].timestamp, interval: `${interval/1000}s`, source: 'MOCK' }
   };
-  
   historyCache.set(cacheKey, history);
   return history;
 }
 
-// Market status (cached, updates every minute)
-let cachedMarketStatus: MarketStatus | null = null;
-let lastMarketStatusUpdate = 0;
+let cachedMarket: MarketStatus | null = null;
+let marketCacheTime = 0;
 
 function getMarketStatusFast(): MarketStatus {
   const now = Date.now();
-  if (cachedMarketStatus && (now - lastMarketStatusUpdate) < 60000) {
-    return cachedMarketStatus;
-  }
-  lastMarketStatusUpdate = now;
-  
-  const istTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const hours = istTime.getHours();
-  const minutes = istTime.getMinutes();
-  const currentMinutes = hours * 60 + minutes;
-  const marketOpen = 9 * 60 + 15;
-  const marketClose = 15 * 60 + 30;
-  const isWeekday = istTime.getDay() >= 1 && istTime.getDay() <= 5;
-  
-  let isOpen = false;
-  let statusMessage = '';
-  
-  if (!isWeekday) {
-    statusMessage = 'Market closed on weekends';
-  } else if (currentMinutes < marketOpen) {
-    statusMessage = 'Market yet to open';
-  } else if (currentMinutes >= marketOpen && currentMinutes < marketClose) {
-    isOpen = true;
-    statusMessage = 'Market is open for trading';
-  } else {
-    statusMessage = 'Market closed for the day';
-  }
-  
-  cachedMarketStatus = {
+  if (cachedMarket && now - marketCacheTime < 60000) return cachedMarket;
+  marketCacheTime = now;
+  const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const minutes = ist.getHours() * 60 + ist.getMinutes();
+  const isOpen = (ist.getDay() >= 1 && ist.getDay() <= 5) && minutes >= 9*60+15 && minutes < 15*60+30;
+  cachedMarket = {
     isOpen,
-    currentTime: istTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata' }),
-    statusMessage,
+    currentTime: ist.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', timeZone:'Asia/Kolkata' }),
+    statusMessage: isOpen ? 'Market is open' : 'Market closed',
     timezone: 'Asia/Kolkata',
   };
-  
-  return cachedMarketStatus;
+  return cachedMarket;
 }
 
-// ============================================================================
-// CACHED API FUNCTIONS
-// ============================================================================
-
+// ========== API FUNCTIONS ==========
 export async function fetchStocks(): Promise<Stock[]> {
-  // Return cached + updated prices instantly (no delay)
-  return updatePrices();
+  return Promise.resolve(updatePrices());
 }
 
 export async function fetchStockBySymbol(symbol: string): Promise<Stock | null> {
@@ -284,110 +179,39 @@ export async function fetchStockBySymbol(symbol: string): Promise<Stock | null> 
   return stocks.find(s => s.symbol === symbol) || null;
 }
 
-export async function fetchStockHistory(
-  symbol: string,
-  timeframe: '1m' | '5m' | '1D'
-): Promise<StockHistory> {
-  // Simulate no network delay - instant response
-  return getHistoricalData(symbol, timeframe);
+export async function fetchStockHistory(symbol: string, timeframe: '1m'|'5m'|'1D'): Promise<StockHistory> {
+  return Promise.resolve(generateHistory(symbol, timeframe));
 }
 
 export async function fetchMarketStatus(): Promise<MarketStatus> {
-  return getMarketStatusFast();
+  return Promise.resolve(getMarketStatusFast());
 }
 
-export async function executeDeposit(request: DepositRequest): Promise<TransactionResponse> {
-  // Simulate fast processing (200ms instead of 1500ms)
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  if (request.amount < 100) {
-    return {
-      success: false,
-      message: 'Minimum deposit amount is ₹100',
-      timestamp: Date.now(),
-      status: 'FAILED',
-      amount: request.amount,
-    };
-  }
-  
-  return {
-    success: true,
-    transactionId: `TXN_${Date.now()}`,
-    message: 'Deposit successful!',
-    timestamp: Date.now(),
-    status: 'SUCCESS',
-    amount: request.amount,
-  };
+export async function executeDeposit(req: DepositRequest): Promise<TransactionResponse> {
+  await new Promise(r => setTimeout(r, 200));
+  if (req.amount < 100) return { success: false, message: 'Minimum ₹100', timestamp: Date.now(), status: 'FAILED', amount: req.amount };
+  return { success: true, transactionId: `TXN_${Date.now()}`, message: 'Deposit successful', timestamp: Date.now(), status: 'SUCCESS', amount: req.amount };
 }
 
-export async function executeWithdrawal(request: WithdrawalRequest): Promise<TransactionResponse> {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  const upiRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/;
-  if (!upiRegex.test(request.upiId)) {
-    return {
-      success: false,
-      message: 'Invalid UPI ID format',
-      timestamp: Date.now(),
-      status: 'FAILED',
-      amount: request.amount,
-    };
-  }
-  
-  if (request.amount < 100) {
-    return {
-      success: false,
-      message: 'Minimum withdrawal amount is ₹100',
-      timestamp: Date.now(),
-      status: 'FAILED',
-      amount: request.amount,
-    };
-  }
-  
-  return {
-    success: true,
-    transactionId: `WDL_${Date.now()}`,
-    message: `Withdrawal request for ₹${request.amount} initiated`,
-    timestamp: Date.now(),
-    status: 'PENDING',
-    amount: request.amount,
-  };
+export async function executeWithdrawal(req: WithdrawalRequest): Promise<TransactionResponse> {
+  await new Promise(r => setTimeout(r, 200));
+  if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/.test(req.upiId)) return { success: false, message: 'Invalid UPI ID', timestamp: Date.now(), status: 'FAILED', amount: req.amount };
+  if (req.amount < 100) return { success: false, message: 'Minimum ₹100', timestamp: Date.now(), status: 'FAILED', amount: req.amount };
+  return { success: true, transactionId: `WDL_${Date.now()}`, message: 'Withdrawal initiated', timestamp: Date.now(), status: 'PENDING', amount: req.amount };
 }
 
-export async function placeOrder(request: OrderRequest): Promise<OrderResponse> {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  if (request.quantity <= 0) {
-    throw new Error('Invalid quantity');
-  }
-  
-  const total = request.quantity * request.price;
-  
+export async function placeOrder(req: OrderRequest): Promise<OrderResponse> {
+  await new Promise(r => setTimeout(r, 100));
+  if (req.quantity <= 0) throw new Error('Invalid quantity');
   return {
     id: `ORD_${Date.now()}`,
-    symbol: request.symbol,
-    type: request.type,
-    orderType: request.orderType,
-    quantity: request.quantity,
-    price: request.price,
-    total,
+    symbol: req.symbol,
+    type: req.type,
+    orderType: req.orderType,
+    quantity: req.quantity,
+    price: req.price,
+    total: req.quantity * req.price,
     status: 'EXECUTED',
     timestamp: Date.now(),
-    executedQuantity: request.quantity,
-    executedPrice: request.price,
   };
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export const api = {
-  fetchStocks,
-  fetchStockBySymbol,
-  fetchStockHistory,
-  fetchMarketStatus,
-  executeDeposit,
-  executeWithdrawal,
-  placeOrder,
-};
