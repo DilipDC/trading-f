@@ -1,7 +1,6 @@
 /**
- * Chart Component - Optimized for Super Fast Rendering
- * Features: Canvas rendering, requestAnimationFrame, minimal redraws, touch events
- * Version: 4.0.0 - Ultra Fast
+ * Chart Component - Optimized Canvas Rendering
+ * Features: Candlestick & Line charts, hover tooltip, crosshair
  */
 
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
@@ -17,37 +16,36 @@ interface ChartComponentProps {
 const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>();
   const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
   const [hoverData, setHoverData] = useState<StockDataPoint | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Update dimensions on resize (debounced)
+  // Update dimensions on resize
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    const updateDimensions = () => {
+    let timeout: NodeJS.Timeout;
+    const update = () => {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
         setDimensions({ width, height: 400 });
       }
     };
+    update();
     const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(updateDimensions, 100);
+      clearTimeout(timeout);
+      timeout = setTimeout(update, 100);
     };
-    updateDimensions();
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId);
+      clearTimeout(timeout);
     };
   }, []);
 
-  // Draw chart (optimized with direct canvas manipulation)
+  // Draw chart
   const drawChart = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !data || !data.data?.length) return;
+    if (!ctx || !data?.data?.length) return;
 
     const { width, height } = dimensions;
     canvas.width = width;
@@ -61,14 +59,14 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
     const volumeHeight = height * 0.2;
     const volumeY = height - volumeHeight;
 
-    // Clear with gradient
+    // Background gradient
     const grad = ctx.createLinearGradient(0, 0, 0, height);
     grad.addColorStop(0, '#0a0e1a');
     grad.addColorStop(1, '#1a1f2e');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // Grid
+    // Grid & price labels
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 4; i++) {
@@ -102,7 +100,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
         else ctx.lineTo(x, y);
       });
       ctx.stroke();
-      // Gradient fill
+      // Fill under line
       ctx.lineTo(width, height);
       ctx.lineTo(0, height);
       ctx.fillStyle = 'rgba(0,212,255,0.05)';
@@ -117,11 +115,13 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
         const highY = height - ((p.high - minPrice) / priceRange) * height;
         const lowY = height - ((p.low - minPrice) / priceRange) * height;
         const isGreen = p.close >= p.open;
+        // Wick
         ctx.beginPath();
         ctx.moveTo(x, highY);
         ctx.lineTo(x, lowY);
         ctx.strokeStyle = isGreen ? '#00e676' : '#ff4444';
         ctx.stroke();
+        // Body
         const bodyTop = Math.min(openY, closeY);
         const bodyH = Math.abs(closeY - openY);
         ctx.fillStyle = isGreen ? '#00e676' : '#ff4444';
@@ -129,7 +129,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
       });
     }
 
-    // Crosshair & tooltip on hover
+    // Crosshair & tooltip
     if (hoverData && mousePos.x > 0 && mousePos.x < width && mousePos.y > 0 && mousePos.y < height) {
       ctx.beginPath();
       ctx.moveTo(mousePos.x, 0);
@@ -155,43 +155,42 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
         ctx.fill();
 
         // Tooltip
-        const tooltipX = Math.min(mousePos.x + 15, width - 170);
-        const tooltipY = Math.max(mousePos.y - 80, 10);
+        const tipX = Math.min(mousePos.x + 15, width - 170);
+        const tipY = Math.max(mousePos.y - 80, 10);
         ctx.fillStyle = 'rgba(10,14,26,0.95)';
-        ctx.fillRect(tooltipX, tooltipY, 160, 85);
+        ctx.fillRect(tipX, tipY, 160, 85);
         ctx.strokeStyle = '#00d4ff';
-        ctx.strokeRect(tooltipX, tooltipY, 160, 85);
+        ctx.strokeRect(tipX, tipY, 160, 85);
         ctx.fillStyle = '#00d4ff';
         ctx.font = 'bold 12px Inter';
-        ctx.fillText(symbol, tooltipX+10, tooltipY+20);
+        ctx.fillText(symbol, tipX+10, tipY+20);
         ctx.fillStyle = '#8b92a8';
         ctx.font = '10px Inter';
-        ctx.fillText(formatDate(hoverData.timestamp), tooltipX+10, tooltipY+35);
+        ctx.fillText(formatDate(hoverData.timestamp), tipX+10, tipY+35);
         ctx.fillStyle = hoverData.close >= hoverData.open ? '#00e676' : '#ff4444';
         ctx.font = 'bold 14px Inter';
-        ctx.fillText(`₹${hoverData.close.toFixed(2)}`, tooltipX+10, tooltipY+55);
+        ctx.fillText(`₹${hoverData.close.toFixed(2)}`, tipX+10, tipY+55);
         ctx.fillStyle = '#8b92a8';
         ctx.font = '10px Inter';
-        ctx.fillText(`H:₹${hoverData.high.toFixed(2)}`, tooltipX+10, tooltipY+72);
-        ctx.fillText(`L:₹${hoverData.low.toFixed(2)}`, tooltipX+85, tooltipY+72);
+        ctx.fillText(`H:₹${hoverData.high.toFixed(2)}`, tipX+10, tipY+72);
+        ctx.fillText(`L:₹${hoverData.low.toFixed(2)}`, tipX+85, tipY+72);
       }
     }
   }, [data, type, dimensions, hoverData, mousePos, symbol]);
 
   // Animation loop
   useEffect(() => {
+    let frame: number;
     const animate = () => {
       drawChart();
-      animationRef.current = requestAnimationFrame(animate);
+      frame = requestAnimationFrame(animate);
     };
     animate();
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
+    return () => cancelAnimationFrame(frame);
   }, [drawChart]);
 
   // Mouse/touch events
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !data?.data) return;
     const rect = canvas.getBoundingClientRect();
@@ -201,22 +200,18 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ data, type, symbol }) =
     const canvasX = x * scaleX;
     const canvasY = y * (canvas.height / rect.height);
     setMousePos({ x: canvasX, y: canvasY });
-
     const points = data.data;
     const idx = Math.round((canvasX / canvas.width) * (points.length - 1));
-    if (idx >= 0 && idx < points.length) {
-      setHoverData(points[idx]);
-    } else {
-      setHoverData(null);
-    }
-  }, [data]);
+    if (idx >= 0 && idx < points.length) setHoverData(points[idx]);
+    else setHoverData(null);
+  };
 
-  const handleMouseLeave = useCallback(() => {
+  const handleMouseLeave = () => {
     setHoverData(null);
     setMousePos({ x: 0, y: 0 });
-  }, []);
+  };
 
-  if (!data || !data.data?.length) {
+  if (!data?.data?.length) {
     return (
       <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1f2e', borderRadius: '16px', color: '#8b92a8' }}>
         <div><i className="fas fa-chart-line" style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}></i>Select a stock to view chart</div>
