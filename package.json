@@ -1,7 +1,7 @@
 {
   "name": "trading-platform",
-  "version": "3.0.0",
-  "description": "Professional Trading Platform - Real-time stock trading application with advanced charting, portfolio management, and order execution",
+  "version": "4.0.0",
+  "description": "Professional Trading Platform - Ultra fast trading app",
   "type": "module",
   "author": "DilipDC",
   "license": "MIT",
@@ -10,31 +10,10 @@
     "type": "git",
     "url": "https://github.com/DilipDC/trading-f.git"
   },
-  "keywords": [
-    "trading",
-    "stocks",
-    "investment",
-    "portfolio",
-    "real-time",
-    "charting",
-    "trading-platform",
-    "stock-market",
-    "react-trading",
-    "zerodha-clone"
-  ],
   "scripts": {
     "dev": "vite --host --port 3000",
     "build": "vite build",
-    "build:prod": "vite build --mode production",
-    "preview": "vite preview --port 3000",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
-    "lint:fix": "eslint . --ext ts,tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist node_modules package-lock.json",
-    "postinstall": "echo '✅ Dependencies installed successfully'"
+    "preview": "vite preview --port 3000"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -47,9 +26,7 @@
     "react-hot-toast": "^2.4.1",
     "react-spinners": "^0.13.8",
     "uuid": "^9.0.1",
-    "axios": "^1.6.2",
-    "framer-motion": "^10.16.16",
-    "react-icons": "^4.12.0"
+    "axios": "^1.6.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -63,30 +40,11 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
     "prettier": "^3.1.0",
     "typescript": "^5.3.3",
-    "gh-pages": "^6.1.0",
     "terser": "^5.26.0"
   },
   "engines": {
-    "node": "20.18.0",
-    "npm": "10.8.2"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all",
-      "not ie 11"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "volta": {
     "node": "20.18.0",
     "npm": "10.8.2"
   }
