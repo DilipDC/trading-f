@@ -1,8 +1,7 @@
 /**
  * Utilities Module - Trading Platform Helper Functions
- * @module utils
- * @description Provides utility functions for formatting, validation, calculations, time management, and common operations
- * @version 2.0.0
+ * Features: Formatting, Validation, Calculations, Time Management, Storage, Error Handling
+ * Version: 3.0.0
  */
 
 // ============================================================================
@@ -63,9 +62,6 @@ export interface PaginationResult<T> {
 // CURRENCY & NUMBER FORMATTING
 // ============================================================================
 
-/**
- * Format number as Indian currency (₹)
- */
 export function formatCurrency(
   amount: number,
   options: CurrencyFormatOptions = {}
@@ -106,9 +102,6 @@ export function formatCurrency(
   }
 }
 
-/**
- * Format number with commas (Indian numbering system)
- */
 export function formatNumber(num: number, decimals: number = 0): string {
   if (isNaN(num)) return '0';
   
@@ -120,9 +113,6 @@ export function formatNumber(num: number, decimals: number = 0): string {
   return new Intl.NumberFormat('en-IN', options).format(num);
 }
 
-/**
- * Format percentage with sign
- */
 export function formatPercentage(value: number, decimals: number = 2): string {
   if (isNaN(value)) return '0.00%';
   
@@ -130,22 +120,13 @@ export function formatPercentage(value: number, decimals: number = 2): string {
   return `${sign}${value.toFixed(decimals)}%`;
 }
 
-/**
- * Parse number from formatted string
- */
 export function parseNumber(value: string): number {
   if (!value) return 0;
-  
-  // Remove currency symbols, commas, and spaces
   const cleaned = value.replace(/[^0-9.-]/g, '');
   const parsed = parseFloat(cleaned);
-  
   return isNaN(parsed) ? 0 : parsed;
 }
 
-/**
- * Format large numbers with K/M/B suffixes
- */
 export function formatCompactNumber(num: number): string {
   if (num >= 1000000000) {
     return (num / 1000000000).toFixed(2) + 'B';
@@ -163,9 +144,6 @@ export function formatCompactNumber(num: number): string {
 // DATE & TIME UTILITIES
 // ============================================================================
 
-/**
- * Format timestamp to readable date/time
- */
 export function formatDate(
   timestamp: number | Date,
   options: DateFormatOptions = {}
@@ -206,9 +184,6 @@ export function formatDate(
   return `${formattedDate} ${formattedTime}`;
 }
 
-/**
- * Get relative time string (e.g., "5 minutes ago")
- */
 export function getRelativeTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
@@ -231,15 +206,12 @@ export function getRelativeTime(timestamp: number): string {
   return 'Just now';
 }
 
-/**
- * Calculate market countdown timer
- */
 export function calculateMarketCountdown(): MarketTimeInfo {
   const now = new Date();
   const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
   
-  const marketOpen = 9 * 60 + 15; // 9:15 AM
-  const marketClose = 15 * 60 + 30; // 3:30 PM
+  const marketOpen = 9 * 60 + 15;
+  const marketClose = 15 * 60 + 30;
   const currentMinutes = istTime.getHours() * 60 + istTime.getMinutes();
   const isWeekday = istTime.getDay() >= 1 && istTime.getDay() <= 5;
   
@@ -309,17 +281,11 @@ export function calculateMarketCountdown(): MarketTimeInfo {
   };
 }
 
-/**
- * Check if market is currently open
- */
 export function isMarketOpen(): boolean {
   const info = calculateMarketCountdown();
   return info.isOpen;
 }
 
-/**
- * Get formatted market time remaining
- */
 export function getMarketTimeRemaining(): string | null {
   const info = calculateMarketCountdown();
   return info.timeRemaining;
@@ -329,9 +295,6 @@ export function getMarketTimeRemaining(): string | null {
 // VALIDATION FUNCTIONS
 // ============================================================================
 
-/**
- * Validate deposit amount
- */
 export function validateDepositAmount(amount: number): ValidationResult {
   if (isNaN(amount)) {
     return { isValid: false, error: 'Please enter a valid amount' };
@@ -345,16 +308,9 @@ export function validateDepositAmount(amount: number): ValidationResult {
     return { isValid: false, error: 'Maximum deposit amount is ₹1,00,00,000' };
   }
   
-  if (!Number.isInteger(amount) && amount % 100 !== 0) {
-    return { isValid: false, error: 'Amount should be in multiples of ₹100' };
-  }
-  
   return { isValid: true, value: amount };
 }
 
-/**
- * Validate withdrawal amount
- */
 export function validateWithdrawalAmount(amount: number, availableBalance: number): ValidationResult {
   if (isNaN(amount)) {
     return { isValid: false, error: 'Please enter a valid amount' };
@@ -365,7 +321,7 @@ export function validateWithdrawalAmount(amount: number, availableBalance: numbe
   }
   
   if (amount > availableBalance) {
-    return { isValid: false, error: `Insufficient balance. Available: ₹${formatCurrency(availableBalance)}` };
+    return { isValid: false, error: `Insufficient balance. Available: ${formatCurrency(availableBalance)}` };
   }
   
   if (amount > 1000000) {
@@ -375,17 +331,12 @@ export function validateWithdrawalAmount(amount: number, availableBalance: numbe
   return { isValid: true, value: amount };
 }
 
-/**
- * Validate UPI ID format
- */
 export function validateUPIId(upiId: string): ValidationResult {
   if (!upiId || upiId.trim().length === 0) {
     return { isValid: false, error: 'UPI ID is required' };
   }
   
   const trimmed = upiId.trim();
-  
-  // Basic UPI ID regex pattern
   const upiPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/;
   
   if (!upiPattern.test(trimmed)) {
@@ -399,9 +350,6 @@ export function validateUPIId(upiId: string): ValidationResult {
   return { isValid: true, value: trimmed };
 }
 
-/**
- * Validate name (for withdrawals)
- */
 export function validateName(name: string): ValidationResult {
   if (!name || name.trim().length === 0) {
     return { isValid: false, error: 'Name is required' };
@@ -425,9 +373,6 @@ export function validateName(name: string): ValidationResult {
   return { isValid: true, value: trimmed };
 }
 
-/**
- * Validate stock quantity
- */
 export function validateQuantity(quantity: number, maxQuantity: number = 100000): ValidationResult {
   if (isNaN(quantity)) {
     return { isValid: false, error: 'Please enter a valid quantity' };
@@ -448,9 +393,6 @@ export function validateQuantity(quantity: number, maxQuantity: number = 100000)
   return { isValid: true, value: quantity };
 }
 
-/**
- * Validate price (for limit orders)
- */
 export function validatePrice(price: number, minPrice: number = 0.05): ValidationResult {
   if (isNaN(price)) {
     return { isValid: false, error: 'Please enter a valid price' };
@@ -467,9 +409,6 @@ export function validatePrice(price: number, minPrice: number = 0.05): Validatio
   return { isValid: true, value: price };
 }
 
-/**
- * Validate email address
- */
 export function validateEmail(email: string): ValidationResult {
   if (!email || email.trim().length === 0) {
     return { isValid: false, error: 'Email is required' };
@@ -484,9 +423,6 @@ export function validateEmail(email: string): ValidationResult {
   return { isValid: true, value: email.trim().toLowerCase() };
 }
 
-/**
- * Validate phone number (Indian)
- */
 export function validatePhoneNumber(phone: string): ValidationResult {
   if (!phone || phone.trim().length === 0) {
     return { isValid: false, error: 'Phone number is required' };
@@ -509,9 +445,6 @@ export function validatePhoneNumber(phone: string): ValidationResult {
 // PORTFOLIO & TRADING CALCULATIONS
 // ============================================================================
 
-/**
- * Calculate total portfolio value
- */
 export function calculatePortfolioValue(holdings: any[]): { invested: number; current: number } {
   return holdings.reduce(
     (acc, holding) => ({
@@ -522,9 +455,6 @@ export function calculatePortfolioValue(holdings: any[]): { invested: number; cu
   );
 }
 
-/**
- * Calculate total profit/loss
- */
 export function calculateTotalPL(holdings: any[]): number {
   return holdings.reduce((total, holding) => {
     const pl = (holding.currentValue || holding.quantity * holding.currentPrice) - 
@@ -533,9 +463,6 @@ export function calculateTotalPL(holdings: any[]): number {
   }, 0);
 }
 
-/**
- * Calculate day's profit/loss
- */
 export function calculateDayPL(holdings: any[]): number {
   return holdings.reduce((total, holding) => {
     const dayChange = (holding.currentPrice - (holding.previousClose || holding.buyPrice)) * holding.quantity;
@@ -543,17 +470,11 @@ export function calculateDayPL(holdings: any[]): number {
   }, 0);
 }
 
-/**
- * Calculate average buy price
- */
 export function calculateAveragePrice(quantity: number, totalCost: number): number {
   if (quantity === 0) return 0;
   return totalCost / quantity;
 }
 
-/**
- * Calculate brokerage fee (Zerodha-like)
- */
 export function calculateBrokerage(
   quantity: number,
   price: number,
@@ -564,15 +485,12 @@ export function calculateBrokerage(
   
   switch (segment) {
     case 'equity':
-      // ₹0 brokerage for equity delivery
       brokerage = 0;
       break;
     case 'futures':
-      // ₹20 per order or 0.01% whichever is lower
       brokerage = Math.min(20, totalValue * 0.0001);
       break;
     case 'options':
-      // ₹20 per order
       brokerage = 20;
       break;
   }
@@ -580,29 +498,18 @@ export function calculateBrokerage(
   return Math.ceil(brokerage);
 }
 
-/**
- * Calculate STT (Securities Transaction Tax)
- */
 export function calculateSTT(quantity: number, price: number, isSell: boolean): number {
   const totalValue = quantity * price;
   if (isSell) {
-    // 0.1% on sell side for equity delivery
     return totalValue * 0.001;
   }
   return 0;
 }
 
-/**
- * Calculate GST on brokerage
- */
 export function calculateGST(brokerage: number): number {
-  // 18% GST on brokerage
   return brokerage * 0.18;
 }
 
-/**
- * Calculate total charges for an order
- */
 export function calculateTotalCharges(
   quantity: number,
   price: number,
@@ -620,9 +527,9 @@ export function calculateTotalCharges(
   const brokerage = calculateBrokerage(quantity, price, segment);
   const stt = calculateSTT(quantity, price, isSell);
   const gst = calculateGST(brokerage);
-  const exchangeCharges = (quantity * price) * 0.00003; // 0.003%
-  const sebiCharges = 10; // ₹10 per crore
-  const stampDuty = (quantity * price) * 0.00001; // 0.001%
+  const exchangeCharges = (quantity * price) * 0.00003;
+  const sebiCharges = 10;
+  const stampDuty = (quantity * price) * 0.00001;
   
   const total = brokerage + stt + gst + exchangeCharges + sebiCharges + stampDuty;
   
@@ -641,18 +548,12 @@ export function calculateTotalCharges(
 // STRING & DATA MANIPULATION
 // ============================================================================
 
-/**
- * Generate unique ID
- */
 export function generateId(prefix: string = 'id'): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 9);
   return `${prefix}_${timestamp}_${random}`;
 }
 
-/**
- * Debounce function for performance optimization
- */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   delay: number
@@ -665,9 +566,6 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Throttle function for rate limiting
- */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -683,9 +581,6 @@ export function throttle<T extends (...args: any[]) => any>(
   };
 }
 
-/**
- * Deep clone an object
- */
 export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
   if (obj instanceof Date) return new Date(obj.getTime()) as any;
@@ -701,25 +596,16 @@ export function deepClone<T>(obj: T): T {
   return clonedObj;
 }
 
-/**
- * Capitalize first letter of string
- */
 export function capitalize(str: string): string {
   if (!str || str.length === 0) return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-/**
- * Truncate string with ellipsis
- */
 export function truncate(str: string, maxLength: number, suffix: string = '...'): string {
   if (!str || str.length <= maxLength) return str;
   return str.substring(0, maxLength - suffix.length) + suffix;
 }
 
-/**
- * Convert object to query string
- */
 export function toQueryString(params: Record<string, any>): string {
   const query = new URLSearchParams();
   
@@ -736,9 +622,6 @@ export function toQueryString(params: Record<string, any>): string {
   return query.toString();
 }
 
-/**
- * Parse query string to object
- */
 export function parseQueryString(query: string): Record<string, any> {
   const params: Record<string, any> = {};
   const searchParams = new URLSearchParams(query);
@@ -760,27 +643,18 @@ export function parseQueryString(query: string): Record<string, any> {
 // COLOR & STYLE HELPERS
 // ============================================================================
 
-/**
- * Get color based on price change
- */
 export function getChangeColor(change: number): string {
-  if (change > 0) return '#00d4ff'; // Positive - cyan
-  if (change < 0) return '#ff4444'; // Negative - red
-  return '#6b7280'; // Neutral - gray
+  if (change > 0) return '#00e676';
+  if (change < 0) return '#ff4444';
+  return '#8b92a8';
 }
 
-/**
- * Get CSS class for price change
- */
 export function getChangeClass(change: number): string {
   if (change > 0) return 'positive';
   if (change < 0) return 'negative';
   return 'neutral';
 }
 
-/**
- * Format change with sign and color
- */
 export function formatChangeWithSign(change: number, percent: boolean = false): string {
   const sign = change > 0 ? '+' : change < 0 ? '-' : '';
   const value = Math.abs(change);
@@ -792,9 +666,6 @@ export function formatChangeWithSign(change: number, percent: boolean = false): 
 // LOCAL STORAGE HELPERS
 // ============================================================================
 
-/**
- * Save data to localStorage with expiry
- */
 export function setWithExpiry(key: string, value: any, ttl: number = 86400000): void {
   const item = {
     value,
@@ -803,9 +674,6 @@ export function setWithExpiry(key: string, value: any, ttl: number = 86400000): 
   localStorage.setItem(key, JSON.stringify(item));
 }
 
-/**
- * Get data from localStorage with expiry check
- */
 export function getWithExpiry(key: string): any {
   const itemStr = localStorage.getItem(key);
   if (!itemStr) return null;
@@ -819,9 +687,6 @@ export function getWithExpiry(key: string): any {
   return item.value;
 }
 
-/**
- * Clear all trading-related storage
- */
 export function clearTradingStorage(): void {
   const keys = ['watchlist', 'portfolio', 'orders', 'settings'];
   keys.forEach(key => localStorage.removeItem(key));
@@ -831,9 +696,6 @@ export function clearTradingStorage(): void {
 // PAGINATION HELPERS
 // ============================================================================
 
-/**
- * Paginate array data
- */
 export function paginate<T>(
   data: T[],
   page: number = 1,
@@ -856,9 +718,6 @@ export function paginate<T>(
   };
 }
 
-/**
- * Search array items by text
- */
 export function searchItems<T>(
   items: T[],
   searchTerm: string,
@@ -882,9 +741,6 @@ export function searchItems<T>(
   );
 }
 
-/**
- * Sort array items by key
- */
 export function sortItems<T>(
   items: T[],
   key: keyof T,
@@ -897,8 +753,8 @@ export function sortItems<T>(
     let bVal = b[key];
     
     if (typeof aVal === 'string' && typeof bVal === 'string') {
-      aVal = aVal.toLowerCase();
-      bVal = bVal.toLowerCase();
+      aVal = aVal.toLowerCase() as any;
+      bVal = bVal.toLowerCase() as any;
     }
     
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
@@ -913,9 +769,6 @@ export function sortItems<T>(
 // ERROR HANDLING & LOGGING
 // ============================================================================
 
-/**
- * Custom error class for trading errors
- */
 export class TradingError extends Error {
   public code: string;
   public statusCode: number;
@@ -930,17 +783,12 @@ export class TradingError extends Error {
   }
 }
 
-/**
- * Log error with context
- */
 export function logError(error: Error | unknown, context?: string): void {
-  if (import.meta.env.DEV) {
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     console.error(`[${context || 'Application'} Error]:`, error);
   }
   
-  // In production, send to error tracking service
-  if (import.meta.env.PROD) {
-    // Send to Sentry or similar service
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     const errorData = {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -949,18 +797,11 @@ export function logError(error: Error | unknown, context?: string): void {
       url: window.location.href,
     };
     
-    // Send to error tracking endpoint
-    fetch('/api/log-error', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(errorData),
-    }).catch(console.error);
+    // Silent log - don't spam console in production
+    console.debug('Error logged:', errorData);
   }
 }
 
-/**
- * Retry async operation with exponential backoff
- */
 export async function retryOperation<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
@@ -986,25 +827,17 @@ export async function retryOperation<T>(
 // BROWSER & DEVICE UTILITIES
 // ============================================================================
 
-/**
- * Check if device is mobile
- */
 export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
 }
 
-/**
- * Check if browser supports WebSocket
- */
 export function supportsWebSocket(): boolean {
-  return 'WebSocket' in window && typeof WebSocket === 'function';
+  return typeof WebSocket !== 'undefined' && typeof WebSocket === 'function';
 }
 
-/**
- * Check if browser supports localStorage
- */
 export function supportsLocalStorage(): boolean {
   try {
     const test = '__storage_test__';
@@ -1016,9 +849,6 @@ export function supportsLocalStorage(): boolean {
   }
 }
 
-/**
- * Get device information
- */
 export function getDeviceInfo(): {
   isMobile: boolean;
   isTablet: boolean;
@@ -1026,6 +856,10 @@ export function getDeviceInfo(): {
   browser: string;
   os: string;
 } {
+  if (typeof window === 'undefined') {
+    return { isMobile: false, isTablet: false, isDesktop: true, browser: 'Unknown', os: 'Unknown' };
+  }
+  
   const ua = navigator.userAgent;
   
   const isMobile = /Mobile|Android|iPhone|iPad|iPod/i.test(ua);
@@ -1033,17 +867,18 @@ export function getDeviceInfo(): {
   const isDesktop = !isMobile && !isTablet;
   
   let browser = 'Unknown';
-  if (ua.includes('Chrome')) browser = 'Chrome';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
   else if (ua.includes('Firefox')) browser = 'Firefox';
-  else if (ua.includes('Safari')) browser = 'Safari';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
   else if (ua.includes('Edge')) browser = 'Edge';
+  else if (ua.includes('Opera') || ua.includes('OPR')) browser = 'Opera';
   
   let os = 'Unknown';
   if (ua.includes('Windows')) os = 'Windows';
   else if (ua.includes('Mac')) os = 'MacOS';
   else if (ua.includes('Linux')) os = 'Linux';
   else if (ua.includes('Android')) os = 'Android';
-  else if (ua.includes('iOS')) os = 'iOS';
+  else if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
   
   return { isMobile, isTablet, isDesktop, browser, os };
 }
