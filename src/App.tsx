@@ -1,7 +1,7 @@
 /**
- * Advanced Trading Platform - Complete Application
- * Features: Real-time stocks, advanced charts, watchlist, portfolio, orders, deposits, withdrawals
- * UI: Glassmorphism, dark theme, smooth animations, responsive
+ * Main Application Component - Trading Platform Core
+ * Features: Stock Dashboard, Real-time Charts, Watchlist, Portfolio, Orders, Deposits, Withdrawals
+ * Version: 3.0.0 - Production Ready
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
@@ -18,13 +18,15 @@ import {
   calculatePortfolioValue,
   calculateTotalPL,
   calculateDayPL,
+  debounce,
+  throttle,
   type MarketTimeInfo,
   type ToastType,
   type SoundType
 } from './utils';
 
-// Lazy load chart component
-const AdvancedChart = lazy(() => import('./components/AdvancedChart'));
+// Lazy load chart component for performance
+const ChartComponent = lazy(() => import('./components/ChartComponent'));
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -178,6 +180,7 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((pr
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
+      console.error(error);
       return initialValue;
     }
   });
@@ -213,7 +216,7 @@ const App: React.FC = () => {
   const [marketCountdown, setMarketCountdown] = useState<MarketTimeInfo | null>(null);
   
   // Chart Settings
-  const [chartType, setChartType] = useState<'candlestick' | 'line' | 'area'>('candlestick');
+  const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
   const [timeframe, setTimeframe] = useState<'1m' | '5m' | '1D' | '1W' | '1M'>('1D');
   
   // Watchlist State
@@ -337,7 +340,7 @@ const App: React.FC = () => {
     if (!symbol) return;
     try {
       setIsLoadingChart(true);
-      const history = await fetchStockHistory(symbol, timeframe as any);
+      const history = await fetchStockHistory(symbol, timeframe);
       setStockHistory(history);
     } catch (error) {
       showToast('Failed to load chart data', 'error');
@@ -1060,7 +1063,7 @@ const App: React.FC = () => {
       <aside className={`sidebar ${isSidebarOpen ? 'open' : 'closed'} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <img src="/assets/images/logo.svg" alt="Trading Pro" style={{ width: '32px', height: '32px' }} />
+            <i className="fas fa-chart-line"></i>
             <span>TRADING<span>PRO</span></span>
           </div>
           <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
@@ -1162,9 +1165,6 @@ const App: React.FC = () => {
                       <button className={`chart-type-btn ${chartType === 'line' ? 'active' : ''}`} onClick={() => setChartType('line')}>
                         <i className="fas fa-chart-line"></i> Line
                       </button>
-                      <button className={`chart-type-btn ${chartType === 'area' ? 'active' : ''}`} onClick={() => setChartType('area')}>
-                        <i className="fas fa-chart-area"></i> Area
-                      </button>
                     </div>
                     <div className="timeframe-toggle">
                       <button className={`timeframe-btn ${timeframe === '1m' ? 'active' : ''}`} onClick={() => setTimeframe('1m')}>1m</button>
@@ -1184,7 +1184,7 @@ const App: React.FC = () => {
                     </div>
                   ) : (
                     <Suspense fallback={<div className="chart-loading">Loading chart...</div>}>
-                      <AdvancedChart data={stockHistory} type={chartType} symbol={selectedStock?.symbol || ''} />
+                      <ChartComponent data={stockHistory} type={chartType} symbol={selectedStock?.symbol || ''} />
                     </Suspense>
                   )}
                 </div>
