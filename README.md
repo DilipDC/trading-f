@@ -62,3 +62,11 @@
 ---
 
 ## 📁 Project Structure
+
+---
+
+## 🧱 Production Upgrade Artifacts
+
+- Backend scaffold added under `backend/` with FastAPI routers for chart, wallet, and admin control.
+- Frontend modular scaffold added under `src/modules/wallet`, `src/admin/wallet-control`, `src/core`, and `src/services`.
+- Full architecture + 220-feature roadmap documented in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
